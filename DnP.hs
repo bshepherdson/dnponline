@@ -33,13 +33,30 @@ import qualified Data.Text.Lazy
 import qualified Data.Text.Lazy.Encoding
 import Text.Jasmine (minifym)
 
+
+
+import Control.Concurrent.STM
+import Control.Concurrent.STM.TChan
+import Control.Concurrent.STM.TVar
+import qualified Data.Map as M
+import Data.Map (Map)
+
+
 -- | The site argument for your application. This can be a good place to
 -- keep settings and values requiring initialization before your application
 -- starts running, such as database connections. Every handler will have
 -- access to the data present here.
 data DnP = DnP
-    { getStatic :: Static -- ^ Settings for static file serving.
-    , connPool :: Settings.ConnectionPool -- ^ Database connection pool.
+    { getStatic    :: Static -- ^ Settings for static file serving.
+    , connPool     :: Settings.ConnectionPool -- ^ Database connection pool.
+    , userTables   :: TVar (Map UserId TableId)
+    , tables       :: TVar (Map TableId Table)
+    }
+
+type TableId = Int
+
+data Table = Table
+    { clients :: Map UserId TChan
     }
 
 -- | A useful synonym; most of the handler functions in your application
@@ -77,6 +94,9 @@ mkYesodData "DnP" [$parseRoutes|
 /robots.txt RobotsR GET
 
 / RootR GET
+
+/check CheckR GET
+/say   SayR   POST
 |]
 
 -- Please see the documentation for the Yesod typeclass. There are a number
@@ -132,7 +152,7 @@ instance YesodAuth DnP where
     type AuthId DnP = UserId
 
     -- Where to send a user after successful login
-    loginDest _ = RootR
+    loginDest _ = ChatR
     -- Where to send a user after logout
     logoutDest _ = RootR
 
