@@ -1,0 +1,11 @@
+%h1 Dice and Paper Online
+$maybe mu u
+    %p
+        You are logged in as $userIdent.snd.u$. $
+        %a!href=@AuthR.LogoutR@ Logout
+        \.
+$nothing
+    %p
+        You are not logged in. $
+        %a!href=@AuthR.LoginR@ Login now
+        \.
