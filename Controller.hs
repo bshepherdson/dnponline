@@ -10,6 +10,10 @@ import Yesod.Helpers.Static
 import Yesod.Helpers.Auth
 import Database.Persist.GenericSql
 
+import qualified Data.Map as M
+import Control.Concurrent.STM
+import Control.Concurrent.STM.TVar
+
 -- Import all relevant handler modules here.
 import Handler.Handlers
 
@@ -33,7 +37,9 @@ getRobotsR = return $ RepPlain $ toContent "User-agent: *"
 withDnP :: (Application -> IO a) -> IO a
 withDnP f = Settings.withConnectionPool $ \p -> do
     runConnectionPool (runMigration migrateAll) p
-    let h = DnP s p
+    ut <- atomically $ newTVar M.empty
+    t  <- atomically $ newTVar M.empty
+    let h = DnP s p ut t
     toWaiApp h >>= f
   where
     s = fileLookupDir Settings.staticdir typeByExt

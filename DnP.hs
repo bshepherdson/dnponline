@@ -12,6 +12,9 @@ module DnP
     , module Model
     , StaticRoute (..)
     , AuthRoute (..)
+    , Table (..)
+    , TableId (..)
+    , Message (..)
     ) where
 
 import Yesod
@@ -53,11 +56,18 @@ data DnP = DnP
     , tables       :: TVar (Map TableId Table)
     }
 
-type TableId = Int
+type TableId = String
 
 data Table = Table
-    { clients :: Map UserId TChan
+    { clients :: Map UserId (TChan Message)
+    , password :: String
     }
+
+data Message = Message
+    { sender  :: String
+    , message :: String
+    }
+
 
 -- | A useful synonym; most of the handler functions in your application
 -- will need to be of this type.
@@ -95,8 +105,9 @@ mkYesodData "DnP" [$parseRoutes|
 
 / RootR GET
 
-/check CheckR GET
-/say   SayR   POST
+/check CheckInR GET
+/say   SayR   GET
+/chat  ChatR  GET
 |]
 
 -- Please see the documentation for the Yesod typeclass. There are a number

@@ -1,0 +1,37 @@
+$(document).ready(function () {
+    $("#chatform").submit(function (e) {
+        e.preventDefault();
+        $.getJSON("/say", { message: $("#chatmessage").attr("value") }, function(o) {
+            if(o.status == "private") {
+                display("*** " + o.message);
+            }
+        });
+        $("#chatmessage").attr("value", "");
+    });
+
+    checkIn();
+
+});
+
+
+var checkInActive = false;
+var autorefresh = setInterval( function () {
+    if(!checkInActive){
+        checkIn();
+    }
+}, 10000); // every 10 seconds
+
+function checkIn () {
+    checkInActive = true;
+    $.ajax({ dataType: "json", url: "/check", data: { }, success: function(data,textStatus,xml) {
+        display(data.sender + ": " + data.content);
+        checkIn();
+    }});
+    checkInActive = false;
+}
+
+function display (msg) {
+    var ta = $("#chattextarea");
+    ta.html(ta.html() + msg + "\n");
+    ta.scrollTop(1000000);
+}

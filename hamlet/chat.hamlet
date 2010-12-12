@@ -1,0 +1,7 @@
+%h1 Chat Page
+%form#chatform
+    %textarea#chattextarea!rows=20!cols=80
+    %br
+    %p
+        %input#chatmessage!type=text!size=70!maxlength=1000
+        %input!type=submit!value="Send"
