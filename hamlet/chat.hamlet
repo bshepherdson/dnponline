@@ -1,4 +1,4 @@
-%h1 Chat Page
+%h1 Chat Module
 %form#chatform
     %textarea#chattextarea!rows=10!cols=80
     %br
