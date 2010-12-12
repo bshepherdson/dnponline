@@ -9,25 +9,35 @@ $(document).ready(function () {
         $("#chatmessage").attr("value", "");
     });
 
-    checkIn();
+    $("#chatform").bind("ajaxComplete", function(e) {
+        if(needsToCheckIn) {
+            needsToCheckIn = false;
+            if(waitBeforeCheckIn) {
+                waitBeforeCheckIn = false;
+                var junk = setTimeout(function() { checkIn(); }, 5000); // wait 5 seconds
+            } else {
+                checkIn();
+            }
+        }
+    });
 
+    checkIn();
 });
 
-
-var checkInActive = false;
-var autorefresh = setInterval( function () {
-    if(!checkInActive){
-        checkIn();
-    }
-}, 10000); // every 10 seconds
+var needsToCheckIn = false;
+var waitBeforeCheckIn = false;
 
 function checkIn () {
-    checkInActive = true;
-    $.ajax({ dataType: "json", url: "/check", data: { }, success: function(data,textStatus,xml) {
+    $.ajax({ dataType: "json", url: "/check", data: { }, 
+    success: function(data,textStatus,xml) {
         display(data.sender + ": " + data.content);
-        checkIn();
+    }, 
+    error: function() {
+        waitBeforeCheckIn = true;
+    }, 
+    complete: function() {
+        needsToCheckIn = true;
     }});
-    checkInActive = false;
 }
 
 function display (msg) {
