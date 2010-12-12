@@ -28,7 +28,7 @@ var needsToCheckIn = false;
 var waitBeforeCheckIn = false;
 
 function checkIn () {
-    $.ajax({ dataType: "json", url: "/check", data: { }, 
+    $.ajax({ dataType: "json", url: "/check", data: { }, cache: false,
     success: function(data,textStatus,xml) {
         display(data.sender + ": " + data.content);
     }, 
