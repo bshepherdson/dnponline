@@ -19,8 +19,10 @@ import Control.Concurrent.STM.TChan
 commandMap = M.fromList [ ("nick", cmdNick)
                         , ("host", cmdHost)
                         , ("join", cmdJoin)
+                        , ("debug", cmdDebug)
                         ]
 
+-- user id, user, nick, command, args
 type Command = UserId -> User -> String -> String -> [String] -> Handler CommandResponse
 
 
@@ -43,6 +45,7 @@ cmdHost uid u nick cmd [name,pass] = do
         chan <- newTChan
         let t = Table (M.singleton uid chan) pass
         writeTVar (tables dnp) $ M.insert name t ts
+        modifyTVar (userTables dnp) $ M.insert uid name
         return $ ResponsePrivate $ "Table " ++ name ++ " successfully created."
   
 
@@ -71,4 +74,15 @@ cmdJoin uid u nick cmd [name,pass] = do
                 return $ ResponsePrivate $ "Successfully joined table " ++ name
 cmdJoin uid u nick cmd _ = return $ ResponsePrivate $ "Syntax: /join <table name> <password>"
 
+
+cmdDebug :: Command
+cmdDebug _ _ _ _ _ = do
+  dnp <- getYesod
+  (uts,ts) <- liftIO . atomically $ do
+                uts <- readTVar (userTables dnp)
+                ts  <- readTVar (tables dnp)
+                return (uts,ts)
+  liftIO $ print uts
+  liftIO $ print (M.map (\(Table cs p) -> M.keys cs) ts)
+  return $ ResponseSuccess
 

@@ -40,3 +40,10 @@ send uid nick msg = do
 
 
 
+
+modifyTVar :: TVar a -> (a -> a) -> STM ()
+modifyTVar tv f = do
+  x <- readTVar tv
+  writeTVar tv $ f x
+
+
