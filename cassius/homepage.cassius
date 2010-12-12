@@ -4,4 +4,7 @@ h1
 h2#$h2id$
 	color:#CCCCCC
 	font-family:Helvetica,Arial,Helmet,Freesans,sans-serif;
+p
+	color:#CCCCCC
+	font-family:Helvetica,Arial,Helmet,Freesans,sans-serif;
 

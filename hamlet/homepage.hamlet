@@ -3,7 +3,7 @@ $maybe mu u
     %p
         You are logged in as $userIdent.snd.u$. $
         %a!href=@AuthR.LogoutR@ Logout
-	\.	
+	%br	
 	%a!href=@ChatR@ Chat
 	
 $nothing
