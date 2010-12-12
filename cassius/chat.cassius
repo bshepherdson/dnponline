@@ -1,0 +1,18 @@
+h1
+	text-align: center
+	background-color:#000000
+	color:#CCCCCC
+	font-family:Helvetica,Arial,Helmet,Freesans,sans-serif
+
+form#chatform
+	text-align: center
+	background-color:#000000
+	font-family:Helvetica,Arial,Helmet,Freesans,sans-serif
+
+textarea#chattextarea
+	background-color:#999999
+	font-family:Helvetica,Arial,Helmet,Freesans,sans-serif
+
+input#chatmessage
+	background-color:#CCCCCC
+	font-family:Helvetica,Arial,Helmet,Freesans,sans-serif
