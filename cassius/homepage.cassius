@@ -1,4 +1,7 @@
 h1
-    text-align: center
+	text-align: center
+	font-family:Helvetica,Arial,Helmet,Freesans,sans-serif;
 h2#$h2id$
-    color: #990
+	color:#CCCCCC
+	font-family:Helvetica,Arial,Helmet,Freesans,sans-serif;
+
