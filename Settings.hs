@@ -39,7 +39,7 @@ approot :: String
 -- Please note that there is no trailing slash.
 approot = "http://localhost:3000"
 #else
-approot = "http://strombola.csclub.uwaterloo.ca:3000"
+approot = "http://localhost:3000"
 #endif
 
 -- | The location of static files on your system. This is a file system
