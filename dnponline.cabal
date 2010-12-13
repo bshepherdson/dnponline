@@ -1,11 +1,11 @@
 name:              dnponline
-version:           0.0.0
+version:           0.0.1
 license:           BSD3
 license-file:      LICENSE
 author:            Braden Shepherdson
 maintainer:        Braden Shepherdson
-synopsis:          The greatest Yesod web application ever.
-description:       I'm sure you can say something clever here if you try.
+synopsis:          A virtual tabletop for dice and paper games
+description:       A virtual tabletop for dice and paper games
 category:          Web
 stability:         Experimental
 cabal-version:     >= 1.6
@@ -34,6 +34,7 @@ executable         simple-server
                  , hamlet
                  , web-routes
                  , hjsmin       >= 0.0.4   && < 0.1
+				 , parsec >= 3 && < 4
     ghc-options:   -Wall
     extensions:    TemplateHaskell, QuasiQuotes, TypeFamilies
 
