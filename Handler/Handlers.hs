@@ -33,11 +33,20 @@ getCheckInR = do
   (uid,u) <- requireAuth
   liftIO $ putStrLn $ "checkIn from " ++ show uid
   table <- getTable uid
-  chan <- maybe (invalidArgs ["Invalid User ID"]) return $ M.lookup uid (clients table)
+  chan <- maybe (invalidArgs ["Invalid User ID"]) (return.channel) $ M.lookup uid (clients table)
   -- blocks until we have something to send
-  Message s c <- liftIO . atomically $ readTChan chan
-  liftIO $ putStrLn $ "Responding to " ++ show uid ++ " with " ++ show (s,c)
-  jsonToRepJson $ zipJson ["sender", "content"] [s,c]
+  msg <- liftIO . atomically $ readTChan chan
+  case msg of
+    MessageChat s c -> do
+      liftIO $ putStrLn $ "Responding to " ++ show uid ++ " with " ++ show (s,c)
+      jsonToRepJson $ zipJson ["type", "sender", "content"] ["chat",s,c]
+    MessageBoard ts -> do
+      liftIO $ putStrLn $ "Sending Tokens to " ++ show uid
+      jsonToRepJson $ jsonMap [("type", jsonScalar "board"), 
+                               ("tokens", jsonList $ map (\t -> zipJson ["x","y","image","name"] 
+                                                                        $ map ($ t) [show.tokenX, show.tokenY, file, tokenName]) 
+                                                         ts
+                                )]
 
 
 getSayR :: Handler RepJson

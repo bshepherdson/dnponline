@@ -8,6 +8,7 @@ import DnP
 import Handler.Util
 import Control.Monad
 import Control.Applicative
+import Data.Maybe
 
 import qualified Data.Map as M
 
@@ -60,7 +61,7 @@ cmdHost uid u nick cmd [name,pass] = do
       Just _  -> return $ ResponsePrivate $ "Table " ++ name ++ " already exists."
       Nothing -> do
         chan <- newTChan
-        let t = Table (M.singleton uid chan) pass
+        let t = Table (M.singleton uid (Client chan Nothing)) pass uid M.empty
         writeTVar (tables dnp) $ M.insert name t ts
         modifyTVar (userTables dnp) $ M.insert uid name
         return $ ResponsePrivate $ "Table " ++ name ++ " successfully created."
@@ -82,7 +83,7 @@ cmdJoin uid u nick cmd [name,pass] = do
               False -> return $ ResponsePrivate $ "Bad password for table " ++ name
               True  -> do
                 chan <- newTChan
-                let t'  = t { clients = M.insert uid chan (clients t) }
+                let t'  = t { clients = M.update (\c -> Just c { channel = chan }) uid (clients t) }
                     ut' = M.insert uid name ut
                     ts' = M.insert name t' ts
                 writeTVar (userTables dnp) ut'
@@ -100,7 +101,7 @@ cmdDebug _ _ _ _ _ = do
                 ts  <- readTVar (tables dnp)
                 return (uts,ts)
   liftIO $ print uts
-  liftIO $ print (M.map (\(Table cs p) -> M.keys cs) ts)
+  liftIO $ print (M.map (\(Table { clients = cs }) -> M.keys cs) ts)
   return $ ResponseSuccess
 
 
@@ -139,5 +140,29 @@ cmdRoll uid u nick _ (x:_)  = do
                     (Just x, Nothing) -> read x
                     (Nothing,Just y)  -> read y
           return ((read a, read b, c) :: (Int,Int,Int))
+
+
+
+syntaxPlace :: String
+syntaxPlace = "Syntax: /place <x> <y> -- moves your last-used token to the absolute position (x,y)\n        /place <x> <y> <image> -- if there is already a token with this image, move it to the absolute position. If not, add a token at the given location using the given image. The name of the token is the same as the image name.        /place <x> <y> <image> <name> -- If a token with this name already exists, move it to the given location. If the given image differs from that token's existing image, the given image replaces the old one. If such a token does not exist, create it."
+
+cmdPlace :: Command
+cmdPlace uid u nick cmd [] = return $ ResponsePrivate syntaxPlace
+cmdPlace uid u nick cmd [_] = return $ ResponsePrivate syntaxPlace
+cmdPlace uid u nick cmd [x,y] = do
+  t <- getTable uid
+  case lastToken <$> M.lookup uid (clients t) of
+    Nothing        -> return $ ResponsePrivate syntaxPlace
+    Just Nothing   -> return $ ResponsePrivate "You do not have a token on the board."
+    Just (Just lt) -> do
+      let subboard = M.lookup uid (board t)
+      case join $ M.lookup lt <$> subboard of
+        Nothing  -> return $ ResponsePrivate "Your last used token could not be found. Create a new one."
+        Just tok -> let tok' = tok { tokenX = read x, tokenY = read y }
+                    in  do 
+                      updateTable uid $ \t -> Just t { board = M.insert uid (M.insert lt tok' (fromJust subboard)) (board t) }
+                      t' <- getTable uid
+                      liftIO . atomically $ sendBoardUpdate t Nothing
+                      return ResponseSuccess
 
 

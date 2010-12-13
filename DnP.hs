@@ -15,6 +15,8 @@ module DnP
     , Table (..)
     , TableId (..)
     , Message (..)
+    , Token (..)
+    , Client (..)
     ) where
 
 import Yesod
@@ -59,14 +61,27 @@ data DnP = DnP
 type TableId = String
 
 data Table = Table
-    { clients :: Map UserId (TChan Message)
+    { clients :: Map UserId Client
     , password :: String
+    , gm :: UserId -- initially the host
+    , board :: Map UserId (Map String Token)
     }
 
-data Message = Message
-    { sender  :: String
-    , message :: String
+data Client = Client
+    { channel :: TChan Message
+    , lastToken :: Maybe String
     }
+
+data Token = Token
+    { tokenX :: Int
+    , tokenY :: Int
+    , file :: FilePath
+    , tokenName :: String
+    }
+  deriving (Show)
+
+data Message = MessageChat String String -- sender, message
+             | MessageBoard [Token]
 
 
 -- | A useful synonym; most of the handler functions in your application
