@@ -74,9 +74,9 @@ cmdJoin :: Command
 cmdJoin uid u nick cmd [name,pass] = do
   dnp <- getYesod
   liftIO . atomically $ do
-    ut <- readTVar $ userTables dnp
+    userTable <- readTVar $ userTables dnp
     ts <- readTVar $ tables dnp
-    case M.lookup uid ut of
+    case M.lookup uid userTable of
       Just t  -> return $ ResponsePrivate $ "You are already in the table " ++ t ++ ". /part first."
       Nothing -> do
         case M.lookup name ts of
@@ -86,10 +86,10 @@ cmdJoin uid u nick cmd [name,pass] = do
               False -> return $ ResponsePrivate $ "Bad password for table " ++ name
               True  -> do
                 chan <- newTChan
-                let t'  = t { clients = M.update (\c -> Just c { channel = chan }) uid (clients t) }
-                    ut' = M.insert uid name ut
+                let t'  = t { clients = M.insert uid (Client chan Nothing) (clients t) }
+                    userTable' = M.insert uid name userTable
                     ts' = M.insert name t' ts
-                writeTVar (userTables dnp) ut'
+                writeTVar (userTables dnp) userTable'
                 writeTVar (tables dnp) ts'
                 rawSend t serverName $ nick ++ " has joined the table." -- deliberately t, sends to everyone else, not the new client
                 return $ ResponsePrivate $ "Successfully joined table " ++ name
