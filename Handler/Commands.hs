@@ -17,7 +17,7 @@ import Control.Concurrent.STM.TVar
 import Control.Concurrent.STM.TChan
 
 import System.Random
-import Text.Parsec
+import Text.ParserCombinators.Parsec
 
 import Data.List
 
