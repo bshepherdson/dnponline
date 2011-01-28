@@ -16,3 +16,11 @@ textarea#chattextarea
 input#chatmessage
 	background-color:#CCCCCC
 	font-family:Helvetica,Arial,Helmet,Freesans,sans-serif
+
+table.grid
+    border: 1px
+    border-color: gray
+
+td.grid
+    height: 20px
+    width: 20px

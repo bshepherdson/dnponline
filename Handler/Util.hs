@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell, OverloadedStrings, ExistentialQuantification #-}
 module Handler.Util where
 
 import DnP
@@ -52,11 +52,11 @@ send uid nick msg = do
   return ResponseSuccess
 
 
--- if uid is Nothing, sends to everyone
--- otherwise to just the one user
-sendBoardUpdate :: Table -> Maybe UserId -> STM ()
-sendBoardUpdate t Nothing    = mapM_ (sendBoardUpdate t . Just) $ M.keys (clients t)
-sendBoardUpdate t (Just uid) = do
+data UpdateWhom = UpdateAll | UpdateUser UserId
+
+sendBoardUpdate :: Table -> UpdateWhom -> STM ()
+sendBoardUpdate t UpdateAll = mapM_ (sendBoardUpdate t . UpdateUser) $ M.keys (clients t)
+sendBoardUpdate t (UpdateUser uid) = do
   case M.lookup uid (clients t) of
     Nothing -> error "can't happen"
     Just (Client { channel = chan }) -> writeTChan chan $ MessageBoard (concatMap M.elems $ M.elems (board t))
@@ -66,5 +66,11 @@ modifyTVar :: TVar a -> (a -> a) -> STM ()
 modifyTVar tv f = do
   x <- readTVar tv
   writeTVar tv $ f x
+
+
+maybeRead :: forall a . Read a => String -> Maybe a
+maybeRead s = case reads s of
+  [(x,[])] -> Just x
+  _   -> Nothing
 
 

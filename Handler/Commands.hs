@@ -150,19 +150,72 @@ cmdPlace :: Command
 cmdPlace uid u nick cmd [] = return $ ResponsePrivate syntaxPlace
 cmdPlace uid u nick cmd [_] = return $ ResponsePrivate syntaxPlace
 cmdPlace uid u nick cmd [x,y] = do
-  t <- getTable uid
-  case lastToken <$> M.lookup uid (clients t) of
-    Nothing        -> return $ ResponsePrivate syntaxPlace
-    Just Nothing   -> return $ ResponsePrivate "You do not have a token on the board."
-    Just (Just lt) -> do
-      let subboard = M.lookup uid (board t)
-      case join $ M.lookup lt <$> subboard of
-        Nothing  -> return $ ResponsePrivate "Your last used token could not be found. Create a new one."
-        Just tok -> let tok' = tok { tokenX = read x, tokenY = read y }
-                    in  do 
-                      updateTable uid $ \t -> Just t { board = M.insert uid (M.insert lt tok' (fromJust subboard)) (board t) }
-                      t' <- getTable uid
-                      liftIO . atomically $ sendBoardUpdate t Nothing
-                      return ResponseSuccess
+  case (maybeRead x, maybeRead y) of
+    (Nothing,_) -> return $ ResponsePrivate "Failed to parse 'x'"
+    (_,Nothing) -> return $ ResponsePrivate "Failed to parse 'y'"
+    (Just rx, Just ry) -> do
+      t <- getTable uid
+      case lastToken <$> M.lookup uid (clients t) of
+        Nothing        -> return $ ResponsePrivate syntaxPlace
+        Just Nothing   -> return $ ResponsePrivate "You do not have a token on the board."
+        Just (Just lt) -> do
+          let subboard = M.lookup uid (board t)
+          case join $ M.lookup lt <$> subboard of
+            Nothing  -> return $ ResponsePrivate "Your last used token could not be found. Create a new one."
+            Just tok -> let tok' = tok { tokenX = rx, tokenY = ry }
+                        in  do 
+                          updateTable uid $ \t -> Just t { board = M.insert uid (M.insert lt tok' (fromJust subboard)) (board t) }
+                          t' <- getTable uid
+                          liftIO . atomically $ sendBoardUpdate t' UpdateAll
+                          return ResponseSuccess
+
+cmdPlace uid u nick cmd [x,y,image] = do
+  case (maybeRead x, maybeRead y) of
+    (Nothing,_) -> return $ ResponsePrivate "Failed to parse 'x'"
+    (_,Nothing) -> return $ ResponsePrivate "Failed to parse 'y'"
+    (Just rx, Just ry) -> do
+      t <- getTable uid
+      -- find all tokens on the subboard using the given image
+      case M.lookup uid (board t) of
+        Nothing -> return $ ResponsePrivate "An error occurred. (No subboard for your userid was found)."
+        Just subboard -> do
+          case M.elems $ M.filter ((== image) . file) subboard of
+            [] -> do
+              let tok = Token rx ry image image
+              updateTable uid $ \t -> Just t { board = M.insert uid (M.insert image tok subboard) (board t) }
+              t' <- getTable uid
+              liftIO . atomically $ sendBoardUpdate t' UpdateAll
+              return ResponseSuccess
+            [tok] -> do
+              let tok' = tok { tokenX = rx, tokenY = ry }
+              updateTable uid $ \t -> Just t { board = M.insert uid (M.insert (tokenName tok) tok' subboard) (board t) }
+              t' <- getTable uid
+              liftIO . atomically $ sendBoardUpdate t' UpdateAll
+              return ResponseSuccess
+            _ -> return $ ResponsePrivate "Ambiguous command. Please specify an image name instead."
+
+cmdPlace uid u nick cmd [x,y,image,name] = do
+  case (maybeRead x, maybeRead y) of
+    (Nothing,_) -> return $ ResponsePrivate "Failed to parse 'x'"
+    (_,Nothing) -> return $ ResponsePrivate "Failed to parse 'y'"
+    (Just rx, Just ry) -> do
+      t <- getTable uid
+      case M.lookup uid (board t) of
+        Nothing -> return $ ResponsePrivate "An error occurred. (No subboard for your userid was found)."
+        Just subboard -> do
+          case M.lookup name subboard of
+            Nothing -> do
+              let tok = Token rx ry image name
+              updateTable uid $ \t -> Just t { board = M.insert uid (M.insert name tok subboard) (board t) }
+              t' <- getTable uid
+              liftIO . atomically $ sendBoardUpdate t' UpdateAll
+              return ResponseSuccess
+            Just tok -> do
+              let tok' = tok { tokenX = rx, tokenY = ry, file = image }
+              updateTable uid $ \t -> Just t { board = M.insert uid (M.insert (tokenName tok) tok' subboard) (board t) }
+              t' <- getTable uid
+              liftIO . atomically $ sendBoardUpdate t' UpdateAll
+              return ResponseSuccess
+
 
 

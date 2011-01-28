@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell, OverloadedStrings, QuasiQuotes #-}
 module Handler.Handlers where
 
 import DnP
@@ -90,4 +90,23 @@ getChatR = defaultLayout $ do
   addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
   $(widgetFile "chat")
 
+
+
+
+gridCols = 30
+gridRows = 15
+
+gridWidget :: Widget ()
+gridWidget = [$hamlet|
+  %table.grid
+    $forall tableContent row
+      ^row^
+  |]
+  where tableContent = map tableRows [0..gridRows-1]
+        tableRows r  = let row = map (tableSquare r) [0..gridCols-1] in [$hamlet|
+          %tr.grid
+            $forall row square
+              ^square^
+          |]
+        tableSquare r c = let squareId = "sq_" ++ show c ++ "x" ++ show r in [$hamlet| %td.grid#$squareId$ |]
 
