@@ -18,9 +18,12 @@ input#chatmessage
 	font-family:Helvetica,Arial,Helmet,Freesans,sans-serif
 
 table.grid
-    border: 1px
-    border-color: gray
+    border: 3px
+    border-color: white
 
 td.grid
     height: 20px
     width: 20px
+
+img.grid
+    padding: 0px

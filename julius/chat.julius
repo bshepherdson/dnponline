@@ -27,10 +27,16 @@ $(document).ready(function () {
 var needsToCheckIn = false;
 var waitBeforeCheckIn = false;
 
+var mapTokens = [];
+
 function checkIn () {
     $.ajax({ dataType: "json", url: "/check", data: { }, cache: false,
     success: function(data,textStatus,xml) {
-        display(data.sender + ": " + data.content);
+        if(data.type == "chat") {
+            display(data.sender + ": " + data.content);
+        } else if(data.type == "board") {
+            updateMap(data.tokens);
+        }
     }, 
     error: function() {
         waitBeforeCheckIn = true;
@@ -45,3 +51,24 @@ function display (msg) {
     ta.html(ta.html() + msg + "\n");
     ta.scrollTop(1000000);
 }
+
+
+function updateMap(newTokens) {
+    // first hack: just remove them all and replace them with the new ones
+    $("td.grid").html("");
+
+    console.log(newTokens);
+
+    for (i in newTokens) {
+        var t = newTokens[i];
+        var squareId = "sq_" + t.x + "x" + t.y;
+        var square = $("#"+squareId);
+        console.log(t);
+        console.log("t: x=" + t.x +", y="+ t.y+ ", image="+t.image+", name="+t.name);
+        square.html("<img class=\"grid\" src=\"/static/images/" + t.image + "\" />");
+    }
+
+    mapTokens = newTokens;
+}
+
+
