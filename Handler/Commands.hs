@@ -170,6 +170,7 @@ cmdPlace uid u nick cmd [x,y] = do
                           updateTable uid $ \t -> Just t { board = M.insert uid (M.insert lt tok' (fromJust subboard)) (board t) }
                           t' <- getTable uid
                           liftIO . atomically $ sendBoardUpdate t' UpdateAll
+                          updateLastToken uid tok'
                           return ResponseSuccess
 
 cmdPlace uid u nick cmd [x,y,image] = do
@@ -186,12 +187,14 @@ cmdPlace uid u nick cmd [x,y,image] = do
           updateTable uid $ \t -> Just t { board = M.insert uid (M.insert image tok subboard) (board t) }
           t' <- getTable uid
           liftIO . atomically $ sendBoardUpdate t' UpdateAll
+          updateLastToken uid tok
           return ResponseSuccess
         [tok] -> do
           let tok' = tok { tokenX = rx, tokenY = ry }
           updateTable uid $ \t -> Just t { board = M.insert uid (M.insert (tokenName tok) tok' subboard) (board t) }
           t' <- getTable uid
           liftIO . atomically $ sendBoardUpdate t' UpdateAll
+          updateLastToken uid tok'
           return ResponseSuccess
         _ -> return $ ResponsePrivate "Ambiguous command. Please specify an image name instead."
 
@@ -208,12 +211,14 @@ cmdPlace uid u nick cmd [x,y,image,name] = do
           updateTable uid $ \t -> Just t { board = M.insert uid (M.insert name tok subboard) (board t) }
           t' <- getTable uid
           liftIO . atomically $ sendBoardUpdate t' UpdateAll
+          updateLastToken uid tok
           return ResponseSuccess
         Just tok -> do
           let tok' = tok { tokenX = rx, tokenY = ry, file = image }
           updateTable uid $ \t -> Just t { board = M.insert uid (M.insert (tokenName tok) tok' subboard) (board t) }
           t' <- getTable uid
           liftIO . atomically $ sendBoardUpdate t' UpdateAll
+          updateLastToken uid tok'
           return ResponseSuccess
 
 

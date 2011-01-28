@@ -74,3 +74,10 @@ maybeRead s = case reads s of
   _   -> Nothing
 
 
+
+updateLastToken :: UserId -> Token -> Handler ()
+updateLastToken uid token = updateClient uid $ \c -> Just c { lastToken = Just (tokenName token) }
+
+updateClient :: UserId -> (Client -> Maybe Client) -> Handler ()
+updateClient uid f = updateTable uid $ \t -> Just t { clients = M.update f uid (clients t) }
+
