@@ -28,6 +28,7 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("join", cmdJoin)
                         , ("debug", cmdDebug)
 
+                        -- dice commands
                         , ("roll", cmdRoll)
                         , ("r",    cmdRoll)
                         , ("d3",   cmdRoll)
@@ -40,10 +41,12 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("d100", cmdRoll)
                         , ("d%",   cmdRoll)
 
+                        -- board commands
                         , ("place",  cmdPlace)
                         , ("move",   cmdMove)
                         , ("delete", cmdRemove)
                         , ("remove", cmdRemove)
+                        , ("clear",  cmdClear)
                         ]
 
 -- user id, user, nick, command, args
@@ -213,4 +216,24 @@ cmdRemove uid u nick cmd [] = do
 cmdRemove uid u nick cmd [name] = updateBoard uid name $ \_ -> Nothing
 cmdRemove uid u nick cmd _      = sendPrivate syntaxRemove
 
+
+
+syntaxClear :: String
+syntaxClear = "Syntax: /clear -- clears all tokens you own.\n        /clear all -- clears all tokens belonging to everyone (GM only)."
+
+cmdClear uid u nick cmd [] = do
+  updateTable uid $ \t -> Just t { board = M.delete uid (board t) }
+  t <- getTable uid
+  liftIO . atomically $ sendBoardUpdate t UpdateAll
+  return ResponseSuccess
+
+cmdClear uid u nick cmd ["all"] = do
+  t <- getTable uid
+  when (gm t /= uid) $ sendPrivate "/clear all is a GM-only command."
+  updateTable uid $ \t -> Just t { board = M.map (const M.empty) (board t) }
+  t' <- getTable uid
+  liftIO . atomically $ sendBoardUpdate t' UpdateAll
+  return ResponseSuccess
+
+cmdClear uid u nick cmd _ = sendPrivate syntaxClear
 
