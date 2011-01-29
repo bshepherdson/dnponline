@@ -44,10 +44,11 @@ updateTable uid f = do
     Just t  -> liftIO . atomically $ modifyTVar (tables dnp) (M.update f tid)
 
 
--- sends from inside an STM transaction
+-- sends a message to everyone from inside an STM transaction
 rawSend :: Table -> String -> String -> STM ()
 rawSend t nick msg = mapM_ (flip writeTChan (MessageChat nick msg) . channel) (M.elems (clients t))
 
+-- sends a message to everyone
 send :: UserId -> String -> String -> Handler CommandResponse
 send uid nick msg = do
   table <- getTable uid

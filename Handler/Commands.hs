@@ -20,6 +20,7 @@ import System.Random
 import Text.ParserCombinators.Parsec
 
 import Data.List
+import Data.Char (toLower)
 
 sum' = foldl' (+) 0
 
@@ -29,6 +30,7 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("debug", cmdDebug)
                         , ("who",  cmdWho)
                         , ("tables", cmdTables)
+                        , ("gm",     cmdGM)
 
                         -- dice commands
                         , ("roll", cmdRoll)
@@ -227,7 +229,7 @@ cmdRemove uid u nick cmd _      = sendPrivate syntaxRemove
 
 
 syntaxClear :: String
-syntaxClear = "Syntax: /clear -- clears all tokens you own.\n        /clear all -- clears all tokens belonging to everyone (GM only)."
+syntaxClear = "Syntax: /clear -- clears all tokens you own.\n        /clear all -- clears all tokens belonging to everyone. (GM only)"
 
 cmdClear uid u nick cmd [] = do
   updateTable uid $ \t -> Just t { board = M.delete uid (board t) }
@@ -258,5 +260,21 @@ cmdTables uid u nick cmd _ = do
   let descriptions = M.elems $ M.mapWithKey (\k t -> k ++ " (" ++ show (M.size $ clients t) ++ " users)") ts
   return $ ResponsePrivate $ "\nCurrently active tables:\n" ++ unlines descriptions
 
+
+
+syntaxGM :: String
+syntaxGM = "Syntax: /gm <nickname> -- transfers GM powers to the given user. (GM only)"
+
+cmdGM uid u nick cmd args = do
+  t <- getTable uid
+  when (gm t /= uid) $ sendPrivate "/gm is a GM-only command."
+  let target  = unwords args        -- these two are used independently below
+      target' = map toLower target
+      cs      = M.assocs $ clients t
+  case filter ((==target') . map toLower . clientNick . snd) cs of
+    [] -> sendPrivate $ "No user with nickname " ++ target ++ " was found. Check /who for a list of users in the table."
+    [newgm] -> do
+      updateTable uid $ \t -> Just t { gm = fst newgm }
+      send uid serverName $ nick ++ " has made " ++ clientNick (snd newgm) ++ " the new GM."
 
 
