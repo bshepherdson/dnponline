@@ -31,6 +31,8 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         -- dice commands
                         , ("roll", cmdRoll)
                         , ("r",    cmdRoll)
+                        , ("proll",cmdRoll)
+                        , ("pr",   cmdRoll)
                         , ("d3",   cmdRoll)
                         , ("d4",   cmdRoll)
                         , ("d6",   cmdRoll)
@@ -117,7 +119,7 @@ cmdDebug _ _ _ _ _ = do
 
 
 syntaxRoll :: String
-syntaxRoll = "Syntax: /roll AdB+C\nExamples: /roll 2d6-2   /roll d20   /roll 1d8+3"
+syntaxRoll = "Syntax: /roll AdB+C\nExamples: /roll 2d6-2   /roll d20   /roll 1d8+3\n\nSyntax: /proll AdB+C -- Roll privately to yourself. Alias: pr."
 
 cmdRoll :: Command
 cmdRoll uid u nick "d3"   _ = cmdRoll uid u nick "roll" ["1d3"]
@@ -129,8 +131,9 @@ cmdRoll uid u nick "d12"  _ = cmdRoll uid u nick "roll" ["1d12"]
 cmdRoll uid u nick "d20"  _ = cmdRoll uid u nick "roll" ["1d20"]
 cmdRoll uid u nick "d100" _ = cmdRoll uid u nick "roll" ["1d100"]
 cmdRoll uid u nick "d%"   _ = cmdRoll uid u nick "roll" ["1d100"]
+cmdRoll uid u nick "pr"   r = cmdRoll uid u nick "proll" r
 cmdRoll uid u nick _ []     = return $ ResponsePrivate syntaxRoll
-cmdRoll uid u nick _ (x:_)  = do
+cmdRoll uid u nick cmd (x:_)  = do
     case parse parseDice "" (case x of ('d':_) -> '1':x; _ -> x) of
       Left _ -> return $ ResponsePrivate syntaxRoll
       Right (a,b,c) | a <= 0 -> return $ ResponsePrivate "Number of dice cannot be less than 1."
@@ -138,7 +141,9 @@ cmdRoll uid u nick _ (x:_)  = do
                     | otherwise -> do
                         rolls <- replicateM a $ liftIO (randomRIO (1,b))
                         let total = sum' rolls + c
-                        send uid serverName $ nick ++ " rolled " ++ show a ++ "d" ++ show b ++ (if c < 0 then show c else "+" ++ show c) ++ " and got " ++ show total
+                        case cmd of
+                          "roll" -> send uid serverName $ nick ++ " rolled " ++ show a ++ "d" ++ show b ++ (if c < 0 then show c else "+" ++ show c) ++ " and got " ++ show total
+                          "proll" -> return $ ResponsePrivate $ "You privately rolled " ++ show a ++ "d" ++ show b ++ (if c < 0 then show c else "+" ++ show c) ++ " and got " ++ show total
   where parseDice = do
           a <- many1 digit
           char 'd'
