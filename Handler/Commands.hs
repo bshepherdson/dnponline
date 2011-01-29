@@ -40,8 +40,10 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("d100", cmdRoll)
                         , ("d%",   cmdRoll)
 
-                        , ("place", cmdPlace)
-                        , ("move",  cmdMove)
+                        , ("place",  cmdPlace)
+                        , ("move",   cmdMove)
+                        , ("delete", cmdRemove)
+                        , ("remove", cmdRemove)
                         ]
 
 -- user id, user, nick, command, args
@@ -197,5 +199,17 @@ cmdMove uid u nick cmd [x,y,name] = do
   ry <- case maybeRead y of Just a -> return a; Nothing -> sendPrivate "Failed to parse 'y'"
   updateBoard uid name $ \x -> case x of Nothing -> Nothing; Just tok -> Just tok { tokenX = tokenX tok + rx, tokenY = tokenY tok - ry }
 
+cmdMove uid u nick cmd _ = sendPrivate syntaxMove
+
+
+syntaxRemove :: String
+syntaxRemove = "Syntax: /remove [name] -- removes the last-used token, or the named token. Alias: delete"
+
+cmdRemove uid u nick cmd [] = do
+  lt <- getLastToken uid syntaxRemove
+  updateBoard uid lt $ \_ -> Nothing
+
+cmdRemove uid u nick cmd [name] = updateBoard uid name $ \_ -> Nothing
+cmdRemove uid u nick cmd _      = sendPrivate syntaxRemove
 
 
