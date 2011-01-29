@@ -95,6 +95,7 @@ cmdJoin uid u nick cmd [name,pass] = do
                 writeTVar (userTables dnp) userTable'
                 writeTVar (tables dnp) ts'
                 rawSend t serverName $ nick ++ " has joined the table." -- deliberately t, sends to everyone else, not the new client
+                sendBoardUpdate t' (UpdateUser uid)
                 return $ ResponsePrivate $ "Successfully joined table " ++ name
 cmdJoin uid u nick cmd _ = return $ ResponsePrivate $ "Syntax: /join <table name> <password>"
 
