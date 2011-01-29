@@ -69,6 +69,7 @@ data Table = Table
 
 data Client = Client
     { channel :: TChan Message
+    , clientNick :: String
     , lastToken :: Maybe String
     }
 

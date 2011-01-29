@@ -27,6 +27,7 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("host", cmdHost)
                         , ("join", cmdJoin)
                         , ("debug", cmdDebug)
+                        , ("who",  cmdWho)
 
                         -- dice commands
                         , ("roll", cmdRoll)
@@ -61,6 +62,7 @@ cmdNick uid u nick cmd []   = return $ ResponsePrivate "Syntax: /nick <new nickn
 cmdNick uid u nick cmd args = do
   let newnick = unwords args
   setSession "nick" newnick
+  updateClient uid $ \c -> Just c { clientNick = newnick }
   send uid serverName $ nick ++ " is now known as " ++ newnick
 
 cmdHost :: Command
@@ -72,7 +74,7 @@ cmdHost uid u nick cmd [name,pass] = do
       Just _  -> return $ ResponsePrivate $ "Table " ++ name ++ " already exists."
       Nothing -> do
         chan <- newTChan
-        let t = Table (M.singleton uid (Client chan Nothing)) pass uid M.empty
+        let t = Table (M.singleton uid (Client chan ("user"++ showPersistKey uid) Nothing)) pass uid M.empty
         writeTVar (tables dnp) $ M.insert name t ts
         modifyTVar (userTables dnp) $ M.insert uid name
         return $ ResponsePrivate $ "Table " ++ name ++ " successfully created."
@@ -94,7 +96,7 @@ cmdJoin uid u nick cmd [name,pass] = do
               False -> return $ ResponsePrivate $ "Bad password for table " ++ name
               True  -> do
                 chan <- newTChan
-                let t'  = t { clients = M.insert uid (Client chan Nothing) (clients t) }
+                let t'  = t { clients = M.insert uid (Client chan ("user" ++ showPersistKey uid) Nothing) (clients t) }
                     userTable' = M.insert uid name userTable
                     ts' = M.insert name t' ts
                 writeTVar (userTables dnp) userTable'
@@ -241,4 +243,11 @@ cmdClear uid u nick cmd ["all"] = do
   return ResponseSuccess
 
 cmdClear uid u nick cmd _ = sendPrivate syntaxClear
+
+
+cmdWho uid u nick cmd _ = do
+  t <- getTable uid
+  let nicks = M.elems $ M.mapWithKey (\k c -> (if gm t == k then "*" else "") ++ clientNick c) (clients t)
+  return $ ResponsePrivate $ "Current members of the table: " ++ intercalate ", " nicks
+
 
