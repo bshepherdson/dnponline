@@ -12,6 +12,9 @@ import Control.Arrow ((***))
 import Data.Maybe
 import Control.Applicative
 
+import Data.List
+import Data.Char (toLower)
+
 
 data CommandResponse = ResponseSuccess | ResponsePrivate String
 
@@ -54,6 +57,19 @@ send uid nick msg = do
   table <- getTable uid
   liftIO . atomically $ rawSend table nick msg
   return ResponseSuccess
+
+
+-- userId of sender, userId of receiver, sender nick, message
+sendTo :: UserId -> UserId -> String -> String -> Handler CommandResponse
+sendTo sendId recvId nick msg = do
+  t <- getTable sendId
+  recv <- case M.lookup recvId (clients t) of
+            Nothing -> sendPrivate $ "Error: userId " ++ showPersistKey recvId ++ " not found on this table."
+            Just x  -> return x
+  liftIO . atomically $ writeTChan (channel recv) (MessageWhisper nick msg)
+  return ResponseSuccess
+
+
 
 
 data UpdateWhom = UpdateAll | UpdateUser UserId
@@ -114,4 +130,23 @@ getLastToken uid syntax = do
   case M.lookup uid (clients t) >>= lastToken of
     Nothing -> sendPrivate syntax
     Just lt -> return lt
+
+
+-- userId of requester, target nick
+getClientByNick :: UserId -> String -> Handler (UserId, Client)
+getClientByNick uid target = do
+  t <- getTable uid
+  let target' = map toLower target
+      cs      = M.assocs $ clients t
+  case filter ((target' `isPrefixOf`) . map toLower . clientNick . snd) cs of
+    [found] -> return found
+    [] -> sendPrivate $ "No user with nickname " ++ target ++ " was found. Check /who for a list of users in the table."
+    xs -> sendPrivate $ "Ambiguous nickname, multiple matches found: " ++ intercalate "," (map (clientNick . snd) xs)
+
+
+getClientById :: UserId -> Handler (Maybe Client)
+getClientById uid = do
+  t <- getTable uid
+  return $ M.lookup uid (clients t)
+
 

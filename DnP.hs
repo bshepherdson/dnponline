@@ -83,6 +83,7 @@ data Token = Token
 
 data Message = MessageChat String String -- sender, message
              | MessageBoard [Token]
+             | MessageWhisper String String -- sender, message
 
 
 -- | A useful synonym; most of the handler functions in your application

@@ -40,6 +40,9 @@ getCheckInR = do
     MessageChat s c -> do
       liftIO $ putStrLn $ "Responding to " ++ show uid ++ " with " ++ show (s,c)
       jsonToRepJson $ zipJson ["type", "sender", "content"] ["chat",s,c]
+    MessageWhisper s c -> do
+      liftIO $ putStrLn $ "Whispering to " ++ show uid ++ " with " ++ show (s,c)
+      jsonToRepJson $ zipJson ["type", "sender", "content"] ["whisper",s,c]
     MessageBoard ts -> do
       liftIO $ putStrLn $ "Sending Tokens to " ++ show uid
       jsonToRepJson $ jsonMap [("type", jsonScalar "board"), 

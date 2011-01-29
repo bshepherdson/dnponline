@@ -36,6 +36,8 @@ function checkIn () {
             display(data.sender + ": " + data.content);
         } else if(data.type == "board") {
             updateMap(data.tokens);
+        } else if(data.type == "whisper") {
+            display("Whisper from " + data.sender + ": " + data.content);
         }
     }, 
     error: function() {

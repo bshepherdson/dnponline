@@ -20,7 +20,6 @@ import System.Random
 import Text.ParserCombinators.Parsec
 
 import Data.List
-import Data.Char (toLower)
 
 sum' = foldl' (+) 0
 
@@ -31,6 +30,8 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("who",  cmdWho)
                         , ("tables", cmdTables)
                         , ("gm",     cmdGM)
+                        , ("whisper", cmdWhisper)
+                        , ("w",       cmdWhisper)
 
                         -- dice commands
                         , ("roll", cmdRoll)
@@ -269,12 +270,19 @@ cmdGM uid u nick cmd args = do
   t <- getTable uid
   when (gm t /= uid) $ sendPrivate "/gm is a GM-only command."
   let target  = unwords args        -- these two are used independently below
-      target' = map toLower target
-      cs      = M.assocs $ clients t
-  case filter ((==target') . map toLower . clientNick . snd) cs of
-    [] -> sendPrivate $ "No user with nickname " ++ target ++ " was found. Check /who for a list of users in the table."
-    [newgm] -> do
-      updateTable uid $ \t -> Just t { gm = fst newgm }
-      send uid serverName $ nick ++ " has made " ++ clientNick (snd newgm) ++ " the new GM."
+  (tid,targetClient) <- getClientByNick uid target
+  updateTable uid $ \t -> Just t { gm = tid }
+  send uid serverName $ nick ++ " has made " ++ clientNick targetClient ++ " the new GM."
+
+
+
+syntaxWhisper :: String
+syntaxWhisper = "Syntax: /whisper <nickname> <msg> -- send a message privately to the given user. Giving the first few letters of the name is usually sufficient (case-insensitive). Alias: w"
+
+cmdWhisper uid u nick cmd (targetName:msgwords) = do
+  let msg = unwords msgwords
+  (targetId, target) <- getClientByNick uid targetName
+  sendTo uid targetId nick msg
+  return $ ResponsePrivate $ "Whisper to " ++ clientNick target ++ ": " ++ msg
 
 
