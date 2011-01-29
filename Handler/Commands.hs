@@ -28,6 +28,7 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("join", cmdJoin)
                         , ("debug", cmdDebug)
                         , ("who",  cmdWho)
+                        , ("tables", cmdTables)
 
                         -- dice commands
                         , ("roll", cmdRoll)
@@ -249,5 +250,13 @@ cmdWho uid u nick cmd _ = do
   t <- getTable uid
   let nicks = M.elems $ M.mapWithKey (\k c -> (if gm t == k then "*" else "") ++ clientNick c) (clients t)
   return $ ResponsePrivate $ "Current members of the table: " ++ intercalate ", " nicks
+
+
+cmdTables uid u nick cmd _ = do
+  dnp <- getYesod
+  ts  <- liftIO . atomically $ readTVar (tables dnp)
+  let descriptions = M.elems $ M.mapWithKey (\k t -> k ++ " (" ++ show (M.size $ clients t) ++ " users)") ts
+  return $ ResponsePrivate $ "\nCurrently active tables:\n" ++ unlines descriptions
+
 
 
