@@ -21,6 +21,8 @@ import Text.ParserCombinators.Parsec
 
 import Data.List
 
+import Control.Arrow (first)
+
 sum' = foldl' (+) 0
 
 commandMap = M.fromList [ ("nick", cmdNick)
@@ -54,6 +56,7 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("delete", cmdRemove)
                         , ("remove", cmdRemove)
                         , ("clear",  cmdClear)
+                        , ("tokens", cmdTokens)
                         ]
 
 -- user id, user, nick, command, args
@@ -285,4 +288,24 @@ cmdWhisper uid u nick cmd (targetName:msgwords) = do
   sendTo uid targetId nick msg
   return $ ResponsePrivate $ "Whisper to " ++ clientNick target ++ ": " ++ msg
 
+cmdWhisper uid u nick cmd _ = sendPrivate "You must supply a target user and a message."
+
+syntaxTokens :: String
+syntaxTokens = "Syntax: /tokens -- lists all board tokens belonging to you.\n        /tokens all -- lists all board tokens."
+
+cmdTokens uid u nick cmd []      = showTokens uid (==uid)
+cmdTokens uid u nick cmd ["all"] = showTokens uid (const True)
+cmdTokens uid u nick cmd _       = sendPrivate syntaxTokens
+
+
+showTokens :: UserId -> (UserId -> Bool) -> Handler CommandResponse
+showTokens uid p = do
+  t <- getTable uid
+  let tokens = M.assocs $ M.filterWithKey (\k _ -> p k) (board t)
+      subboards = map (first $ \k -> fromMaybe ("userId " ++ show k) . fmap clientNick $ M.lookup k (clients t)) tokens -- yields (nick, subboard) pairs
+  case subboards of
+    [] -> return $ ResponsePrivate "No tokens found."
+    _  -> return $ ResponsePrivate . unlines . concatMap (\(nick, subboard) -> ("Tokens belonging to " ++ nick ++ ": ") : map showToken (M.elems subboard)) $ subboards
+
+ where showToken (Token x y file name) = "    " ++ name ++ ": (" ++ show x ++ ", " ++ show y ++ ")  " ++ file
 
