@@ -8,6 +8,9 @@ import Control.Concurrent.STM
 import Control.Concurrent.STM.TVar
 import Control.Concurrent.STM.TChan
 
+import Control.Arrow ((***))
+import Data.Maybe
+import Control.Applicative
 
 
 data CommandResponse = ResponseSuccess | ResponsePrivate String
@@ -75,9 +78,39 @@ maybeRead s = case reads s of
 
 
 
-updateLastToken :: UserId -> Token -> Handler ()
-updateLastToken uid token = updateClient uid $ \c -> Just c { lastToken = Just (tokenName token) }
+updateLastToken :: UserId -> String -> Handler ()
+updateLastToken uid name = updateClient uid $ \c -> Just c { lastToken = Just name }
 
 updateClient :: UserId -> (Client -> Maybe Client) -> Handler ()
 updateClient uid f = updateTable uid $ \t -> Just t { clients = M.update f uid (clients t) }
+
+
+
+sendPrivate :: String -> Handler a
+sendPrivate s = do
+  json <- jsonToRepJson $ zipJson ["status","message"] ["private",s]
+  sendResponse json
+  return undefined
+
+
+
+zipJson x y = jsonMap $ map (id *** jsonScalar) $ zip x y
+
+updateBoard :: UserId -> String -> (Maybe Token -> Maybe Token) -> Handler CommandResponse
+updateBoard uid name f = do
+  t <- getTable uid
+  updateTable uid $ \t -> let subboard = fromMaybe M.empty $ M.lookup uid (board t)
+                          in  Just t { board = M.insert uid (M.alter f name subboard) (board t) }
+  t' <- getTable uid
+  liftIO . atomically $ sendBoardUpdate t' UpdateAll
+  updateLastToken uid name
+  return ResponseSuccess
+
+
+getLastToken :: UserId -> String -> Handler String
+getLastToken uid syntax = do
+  t <- getTable uid
+  case M.lookup uid (clients t) >>= lastToken of
+    Nothing -> sendPrivate syntax
+    Just lt -> return lt
 

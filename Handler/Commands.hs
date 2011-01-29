@@ -41,6 +41,7 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("d%",   cmdRoll)
 
                         , ("place", cmdPlace)
+                        , ("move",  cmdMove)
                         ]
 
 -- user id, user, nick, command, args
@@ -149,6 +150,7 @@ cmdRoll uid u nick _ (x:_)  = do
 syntaxPlace :: String
 syntaxPlace = "Syntax: /place <x> <y> -- moves your last-used token to the absolute position (x,y)\n        /place <x> <y> <image> -- if there is already a token with this image, move it to the absolute position. If not, add a token at the given location using the given image. The name of the token is the same as the image name.        /place <x> <y> <image> <name> -- If a token with this name already exists, move it to the given location. If the given image differs from that token's existing image, the given image replaces the old one. If such a token does not exist, create it."
 
+
 cmdPlace :: Command
 cmdPlace uid u nick cmd [] = return $ ResponsePrivate syntaxPlace
 cmdPlace uid u nick cmd [_] = return $ ResponsePrivate syntaxPlace
@@ -157,21 +159,9 @@ cmdPlace uid u nick cmd [x,y] = do
     (Nothing,_) -> return $ ResponsePrivate "Failed to parse 'x'"
     (_,Nothing) -> return $ ResponsePrivate "Failed to parse 'y'"
     (Just rx, Just ry) -> do
-      t <- getTable uid
-      case lastToken <$> M.lookup uid (clients t) of
-        Nothing        -> return $ ResponsePrivate syntaxPlace
-        Just Nothing   -> return $ ResponsePrivate "You do not have a token on the board."
-        Just (Just lt) -> do
-          let subboard = M.lookup uid (board t)
-          case join $ M.lookup lt <$> subboard of
-            Nothing  -> return $ ResponsePrivate "Your last used token could not be found. Create a new one."
-            Just tok -> let tok' = tok { tokenX = rx, tokenY = ry }
-                        in  do 
-                          updateTable uid $ \t -> Just t { board = M.insert uid (M.insert lt tok' (fromJust subboard)) (board t) }
-                          t' <- getTable uid
-                          liftIO . atomically $ sendBoardUpdate t' UpdateAll
-                          updateLastToken uid tok'
-                          return ResponseSuccess
+      lt <- getLastToken uid syntaxPlace
+      updateBoard uid lt $ \x -> case x of Nothing -> Nothing; Just tok -> Just tok { tokenX = rx, tokenY = ry }
+
 
 cmdPlace uid u nick cmd [x,y,image] = do
   case (maybeRead x, maybeRead y) of
@@ -182,44 +172,30 @@ cmdPlace uid u nick cmd [x,y,image] = do
       -- find all tokens on the subboard using the given image
       let subboard = fromMaybe M.empty $ M.lookup uid (board t)
       case M.elems $ M.filter ((== image) . file) subboard of
-        [] -> do
-          let tok = Token rx ry image image
-          updateTable uid $ \t -> Just t { board = M.insert uid (M.insert image tok subboard) (board t) }
-          t' <- getTable uid
-          liftIO . atomically $ sendBoardUpdate t' UpdateAll
-          updateLastToken uid tok
-          return ResponseSuccess
-        [tok] -> do
-          let tok' = tok { tokenX = rx, tokenY = ry }
-          updateTable uid $ \t -> Just t { board = M.insert uid (M.insert (tokenName tok) tok' subboard) (board t) }
-          t' <- getTable uid
-          liftIO . atomically $ sendBoardUpdate t' UpdateAll
-          updateLastToken uid tok'
-          return ResponseSuccess
-        _ -> return $ ResponsePrivate "Ambiguous command. Please specify an image name instead."
+        []    -> updateBoard uid image $ \_ -> Just (Token rx ry image image)
+        [tok] -> updateBoard uid (tokenName tok) $ \_ -> Just tok { tokenX = rx, tokenY = ry }
+        _     -> sendPrivate "Ambiguous command. Please specify an image name instead."
 
 cmdPlace uid u nick cmd [x,y,image,name] = do
   case (maybeRead x, maybeRead y) of
     (Nothing,_) -> return $ ResponsePrivate "Failed to parse 'x'"
     (_,Nothing) -> return $ ResponsePrivate "Failed to parse 'y'"
-    (Just rx, Just ry) -> do
-      t <- getTable uid
-      let subboard = fromMaybe M.empty $ M.lookup uid (board t)
-      case M.lookup name subboard of
-        Nothing -> do
-          let tok = Token rx ry image name
-          updateTable uid $ \t -> Just t { board = M.insert uid (M.insert name tok subboard) (board t) }
-          t' <- getTable uid
-          liftIO . atomically $ sendBoardUpdate t' UpdateAll
-          updateLastToken uid tok
-          return ResponseSuccess
-        Just tok -> do
-          let tok' = tok { tokenX = rx, tokenY = ry, file = image }
-          updateTable uid $ \t -> Just t { board = M.insert uid (M.insert (tokenName tok) tok' subboard) (board t) }
-          t' <- getTable uid
-          liftIO . atomically $ sendBoardUpdate t' UpdateAll
-          updateLastToken uid tok'
-          return ResponseSuccess
+    (Just rx, Just ry) -> updateBoard uid name $ \_ -> Just (Token rx ry image name)
+
+
+syntaxMove :: String
+syntaxMove = "Syntax: /move <x> <y> -- moves your last-used token by a relative amount: x tiles right (negative left) and y tiles up (negative down)\n        /move <x> <y> <name> -- moves your token named <name> by a relative amount."
+
+cmdMove uid u nick cmd [x,y] = do
+  rx <- case maybeRead x of Just a -> return a; Nothing -> sendPrivate "Failed to parse 'x'"
+  ry <- case maybeRead y of Just a -> return a; Nothing -> sendPrivate "Failed to parse 'y'"
+  lt <- getLastToken uid syntaxMove
+  updateBoard uid lt $ \x -> case x of Nothing -> Nothing; Just tok -> Just tok { tokenX = tokenX tok + rx, tokenY = tokenY tok - ry }
+
+cmdMove uid u nick cmd [x,y,name] = do
+  rx <- case maybeRead x of Just a -> return a; Nothing -> sendPrivate "Failed to parse 'x'"
+  ry <- case maybeRead y of Just a -> return a; Nothing -> sendPrivate "Failed to parse 'y'"
+  updateBoard uid name $ \x -> case x of Nothing -> Nothing; Just tok -> Just tok { tokenX = tokenX tok + rx, tokenY = tokenY tok - ry }
 
 
 

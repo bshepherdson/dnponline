@@ -80,8 +80,6 @@ runCommand uid u nick ('/':msg) = do
 runCommand uid u nick msg = send uid nick msg
 
 
-zipJson x y = jsonMap $ map (id *** jsonScalar) $ zip x y
-
 
 
 getChatR :: Handler RepHtml
