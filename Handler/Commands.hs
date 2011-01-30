@@ -34,6 +34,7 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("gm",     cmdGM)
                         , ("whisper", cmdWhisper)
                         , ("w",       cmdWhisper)
+                        , ("help",    cmdHelp)
 
                         -- dice commands
                         , ("roll", cmdRoll)
@@ -59,18 +60,57 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("tokens", cmdTokens)
                         ]
 
+
+
+helpList = [ ("nick",    ("Changes your nickname.", syntaxNick))
+           , ("host",    ("Hosts a new table.", syntaxHost))
+           , ("join",    ("Joins an existing table.", syntaxJoin))
+           , ("who",     ("Lists the members of the current table.", syntaxWho))
+           , ("tables",  ("Lists the tables currently active on the server.", syntaxTables))
+           , ("gm",      ("Transfers GM powers to someone else. GM only.", syntaxGM))
+           , ("whisper", ("Sends a message privately to another user.", syntaxWhisper))
+           , ("help",    ("Displays this list, or details on a command.", syntaxHelp))
+
+           , ("roll",    ("Rolls dice and shows the result to everyone.", syntaxRoll))
+           , ("proll",   ("Rolls dice and only shows the result to you.", syntaxRoll))
+           , ("d3",      ("Shortcut to roll 1d3.", "Syntax: /d3"))
+           , ("d4",      ("Shortcut to roll 1d4.", "Syntax: /d4"))
+           , ("d6",      ("Shortcut to roll 1d6.", "Syntax: /d6"))
+           , ("d8",      ("Shortcut to roll 1d8.", "Syntax: /d8"))
+           , ("d10",     ("Shortcut to roll 1d10.", "Syntax: /d10"))
+           , ("d12",     ("Shortcut to roll 1d12.", "Syntax: /d12"))
+           , ("d20",     ("Shortcut to roll 1d20.", "Syntax: /d20"))
+           , ("d100",    ("Shortcut to roll 1d100.", "Syntax: /d100"))
+           , ("d%",      ("Shortcut to roll d%.", "Syntax: /d%"))
+
+           , ("place",   ("Places a tile on the board.", syntaxPlace))
+           , ("move",    ("Moves a token on the board.", syntaxMove))
+           , ("delete",  ("Removes a token from the board.", syntaxRemove))
+           , ("remove",  ("Alias for /delete.", syntaxRemove))
+           , ("clear",   ("Removes all your tokens from the board. (GM-only: remove all tokens)", syntaxClear))
+           , ("tokens",  ("List the tokens on the board.", syntaxTokens))
+           ]
+
+helpMap = M.fromList helpList
+
 -- user id, user, nick, command, args
 type Command = UserId -> User -> String -> String -> [String] -> Handler CommandResponse
 
 
 
+syntaxNick = "Syntax: /nick <new nickname>"
+
 cmdNick :: Command
-cmdNick uid u nick cmd []   = return $ ResponsePrivate "Syntax: /nick <new nickname>"
+cmdNick uid u nick cmd []   = return $ ResponsePrivate syntaxNick
 cmdNick uid u nick cmd args = do
   let newnick = unwords args
   setSession "nick" newnick
   updateClient uid $ \c -> Just c { clientNick = newnick }
   send uid serverName $ nick ++ " is now known as " ++ newnick
+
+
+
+syntaxHost = "Syntax: /host <table name> <password for table>"
 
 cmdHost :: Command
 cmdHost uid u nick cmd [name,pass] = do
@@ -86,6 +126,9 @@ cmdHost uid u nick cmd [name,pass] = do
         modifyTVar (userTables dnp) $ M.insert uid name
         return $ ResponsePrivate $ "Table " ++ name ++ " successfully created."
   
+
+
+syntaxJoin = "Syntax: /join <table name> <password>"
 
 cmdJoin :: Command
 cmdJoin uid u nick cmd [name,pass] = do
@@ -111,7 +154,7 @@ cmdJoin uid u nick cmd [name,pass] = do
                 rawSend t serverName $ nick ++ " has joined the table." -- deliberately t, sends to everyone else, not the new client
                 sendBoardUpdate t' (UpdateUser uid)
                 return $ ResponsePrivate $ "Successfully joined table " ++ name
-cmdJoin uid u nick cmd _ = return $ ResponsePrivate $ "Syntax: /join <table name> <password>"
+cmdJoin uid u nick cmd _ = return $ ResponsePrivate $ syntaxJoin
 
 
 cmdDebug :: Command
@@ -252,11 +295,15 @@ cmdClear uid u nick cmd ["all"] = do
 cmdClear uid u nick cmd _ = sendPrivate syntaxClear
 
 
+syntaxWho = "Syntax: /who"
+
 cmdWho uid u nick cmd _ = do
   t <- getTable uid
   let nicks = M.elems $ M.mapWithKey (\k c -> (if gm t == k then "*" else "") ++ clientNick c) (clients t)
   return $ ResponsePrivate $ "Current members of the table: " ++ intercalate ", " nicks
 
+
+syntaxTables = "Syntax: /tables"
 
 cmdTables uid u nick cmd _ = do
   dnp <- getYesod
@@ -308,4 +355,15 @@ showTokens uid p = do
     _  -> return $ ResponsePrivate . unlines . concatMap (\(nick, subboard) -> ("Tokens belonging to " ++ nick ++ ": ") : map showToken (M.elems subboard)) $ subboards
 
  where showToken (Token x y file name) = "    " ++ name ++ ": (" ++ show x ++ ", " ++ show y ++ ")  " ++ file
+
+
+
+syntaxHelp = "Syntax: /help -- displays a list of commands.\n        /help <command> -- displays detailed help on a command."
+
+cmdHelp uid u nick cmd [] = return $ ResponsePrivate $ "--- Available Commands: ---\n" ++ concatMap (\(c,(desc,_)) -> "    " ++ c ++ " -- " ++ desc ++ "\n") helpList
+cmdHelp uid u nick cmd [query] = case M.lookup query helpMap of
+                                   Nothing -> return $ ResponsePrivate $ "Command " ++ query ++ " not found. Run /help for a list of commands."
+                                   Just (desc,syntax) -> return $ ResponsePrivate $ desc ++ "\n" ++ syntax ++ "\n"
+cmdHelp uid u nick cmd _ = return $ ResponsePrivate syntaxHelp
+
 
