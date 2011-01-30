@@ -77,11 +77,16 @@ runCommand uid u nick ('/':msg) = do
   let (cmd:args) = words msg -- guaranteed to be at least one by the ['/'] case above
   let mf = M.lookup cmd commandMap
   case mf of
-    Nothing -> return $ ResponsePrivate $ "Unknown command: '" ++ cmd ++ "'"
     Just f  -> f uid u nick cmd args
+    Nothing -> do 
+      -- retrieve the user's saved commands from the DB
+      cmds <- runDB $ selectList [CommandUserEq uid, CommandNameEq cmd] [] 0 0
+      case cmds of
+        []  -> return $ ResponsePrivate $ "Unknown command: '" ++ cmd ++ "'"
+        [(_,Command _ _ usrcmd)] -> runCommand uid u nick usrcmd
+        _   -> return $ ResponsePrivate $ "ERROR: Multiple possible commands returned. Can't happen."
 
 runCommand uid u nick msg = send uid nick msg
-
 
 
 

@@ -19,7 +19,7 @@ import Control.Concurrent.STM.TChan
 import System.Random
 import Text.ParserCombinators.Parsec
 
-import Data.List
+import Data.List hiding (insert)
 
 import Control.Arrow (first)
 
@@ -58,6 +58,11 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("remove", cmdRemove)
                         , ("clear",  cmdClear)
                         , ("tokens", cmdTokens)
+
+                        -- custom commands
+                        , ("define", cmdDefine)
+                        , ("def",    cmdDefine)
+                        , ("undef",  cmdUndef)
                         ]
 
 
@@ -89,18 +94,21 @@ helpList = [ ("nick",    ("Changes your nickname.", syntaxNick))
            , ("remove",  ("Alias for /delete.", syntaxRemove))
            , ("clear",   ("Removes all your tokens from the board. (GM-only: remove all tokens)", syntaxClear))
            , ("tokens",  ("List the tokens on the board.", syntaxTokens))
+
+           , ("define",  ("Defines custom commands as shortcuts.", syntaxDefine))
+           , ("undef",   ("Deletes a user-defined command.", syntaxUndef))
            ]
 
 helpMap = M.fromList helpList
 
 -- user id, user, nick, command, args
-type Command = UserId -> User -> String -> String -> [String] -> Handler CommandResponse
+type Cmd = UserId -> User -> String -> String -> [String] -> Handler CommandResponse
 
 
 
 syntaxNick = "Syntax: /nick <new nickname>"
 
-cmdNick :: Command
+cmdNick :: Cmd
 cmdNick uid u nick cmd []   = return $ ResponsePrivate syntaxNick
 cmdNick uid u nick cmd args = do
   let newnick = unwords args
@@ -112,7 +120,7 @@ cmdNick uid u nick cmd args = do
 
 syntaxHost = "Syntax: /host <table name> <password for table>"
 
-cmdHost :: Command
+cmdHost :: Cmd
 cmdHost uid u nick cmd [name,pass] = do
   dnp <- getYesod
   liftIO . atomically $ do
@@ -130,7 +138,7 @@ cmdHost uid u nick cmd [name,pass] = do
 
 syntaxJoin = "Syntax: /join <table name> <password>"
 
-cmdJoin :: Command
+cmdJoin :: Cmd
 cmdJoin uid u nick cmd [name,pass] = do
   dnp <- getYesod
   liftIO . atomically $ do
@@ -157,7 +165,7 @@ cmdJoin uid u nick cmd [name,pass] = do
 cmdJoin uid u nick cmd _ = return $ ResponsePrivate $ syntaxJoin
 
 
-cmdDebug :: Command
+cmdDebug :: Cmd
 cmdDebug _ _ _ _ _ = do
   dnp <- getYesod
   (uts,ts) <- liftIO . atomically $ do
@@ -173,7 +181,7 @@ cmdDebug _ _ _ _ _ = do
 syntaxRoll :: String
 syntaxRoll = "Syntax: /roll AdB+C\nExamples: /roll 2d6-2   /roll d20   /roll 1d8+3\n\nSyntax: /proll AdB+C -- Roll privately to yourself. Alias: pr."
 
-cmdRoll :: Command
+cmdRoll :: Cmd
 cmdRoll uid u nick "d3"   _ = cmdRoll uid u nick "roll" ["1d3"]
 cmdRoll uid u nick "d4"   _ = cmdRoll uid u nick "roll" ["1d4"]
 cmdRoll uid u nick "d6"   _ = cmdRoll uid u nick "roll" ["1d6"]
@@ -214,7 +222,7 @@ syntaxPlace :: String
 syntaxPlace = "Syntax: /place <x> <y> -- moves your last-used token to the absolute position (x,y)\n        /place <x> <y> <image> -- if there is already a token with this image, move it to the absolute position. If not, add a token at the given location using the given image. The name of the token is the same as the image name.        /place <x> <y> <image> <name> -- If a token with this name already exists, move it to the given location. If the given image differs from that token's existing image, the given image replaces the old one. If such a token does not exist, create it."
 
 
-cmdPlace :: Command
+cmdPlace :: Cmd
 cmdPlace uid u nick cmd [] = return $ ResponsePrivate syntaxPlace
 cmdPlace uid u nick cmd [_] = return $ ResponsePrivate syntaxPlace
 cmdPlace uid u nick cmd [x,y] = do
@@ -365,5 +373,35 @@ cmdHelp uid u nick cmd [query] = case M.lookup query helpMap of
                                    Nothing -> return $ ResponsePrivate $ "Command " ++ query ++ " not found. Run /help for a list of commands."
                                    Just (desc,syntax) -> return $ ResponsePrivate $ desc ++ "\n" ++ syntax ++ "\n"
 cmdHelp uid u nick cmd _ = return $ ResponsePrivate syntaxHelp
+
+
+
+syntaxDefine :: String
+syntaxDefine = "Syntax: /define <name> <command...> -- the name must be one word but the command can be many words long. The command can then be executed with /<name>. See examples below.\nExamples of definition:\n  /define attack_sword /roll 1d20+3\n  /define spam_chat This is a chat message I can spam.\nExamples of use:\n  /attack_sword\n  /spam_chat\n"
+
+cmdDefine uid u nick cmd [] = return $ ResponsePrivate "You must supply a name and command. Run '/help define' for more details."
+cmdDefine uid u nick cmd [name] = return $ ResponsePrivate "You must supply a name and command. Run '/help define' for more details. To remove a command definition, use /undef."
+cmdDefine uid u nick cmd (name:newcmds) = do
+  let newcmd = unwords newcmds
+  -- store the command into the DB, removing any old one first
+  runDB $ do
+    deleteWhere [CommandUserEq uid, CommandNameEq name]
+    insert $ Command uid name newcmd
+  return $ ResponsePrivate $ "New command /"++name++" successfully stored."
+
+
+syntaxUndef :: String
+syntaxUndef = "Syntax: /undef <name> -- Undefines a previously defined command."
+
+
+cmdUndef uid u nick cmd [name] = do
+  cmdList <- runDB $ selectList [CommandUserEq uid, CommandNameEq name] [] 0 0
+  case cmdList of
+    [] -> return $ ResponsePrivate $ "No user-defined command named '" ++ name ++ "' found."
+    [x] -> do runDB $ deleteWhere [CommandUserEq uid, CommandNameEq name]
+              return $ ResponsePrivate $ "Command /"++name++" removed."
+    _   -> return $ ResponsePrivate $ "Multiple user-defined commands named '" ++ name ++ "' were found. This should be impossible, there has been a bug. Please notify the developers."
+
+cmdUndef uid u nick cmd _ = return $ ResponsePrivate syntaxUndef
 
 

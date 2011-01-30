@@ -18,4 +18,9 @@ Email
     user UserId Maybe Update
     verkey String Maybe Update
     UniqueEmail email
+Command
+    user UserId Eq
+    name String Eq
+    command String
+    UniqueCommand user name
 |]
