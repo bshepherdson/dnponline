@@ -19,12 +19,14 @@ input#chatmessage
 
 table.grid
     border: 3px
-    border-style: dotted
     border-color: #CCCCCC
 
 td.grid
     height: 20px
     width: 20px
+    border: 1px
+    border-style: dotted
+    border-color: #CCCCCC
 
 img.grid
     padding: 0px
