@@ -149,11 +149,17 @@ function clickHandler(e) {
     var y = id.slice(id.indexOf("x")+1);
 
     if(selected){
-        // move the selected element to the given location with a /place command
-        var cmd = "/place " + x + " " + y + " " + selected.image + " " + selected.name;
-        $("td.gridhighlight").removeClass("gridhighlight");
-        selected = null;
-        send(cmd);
+        if(selected.x == x && selected.y == y){
+            // de-select and de-highlight
+            selected = null;
+            $("td.gridhighlight").removeClass("gridhighlight");
+        } else {
+            // move the selected element to the given location with a /place command
+            var cmd = "/place " + x + " " + y + " " + selected.image + " " + selected.name;
+            $("td.gridhighlight").removeClass("gridhighlight");
+            selected = null;
+            send(cmd);
+        }
     } else {
         // check if there's an image under the spot where we clicked
         for(i in mapTokens) {
