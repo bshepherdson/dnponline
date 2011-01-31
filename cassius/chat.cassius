@@ -23,17 +23,19 @@ table.grid
 	padding: 0px
 	border-style: solid
 	border-color: #CCCCCC
+    background-color: #CCCCCC
 
 td.grid
 	height: 20px
 	width: 20px
-	border: 1px
 	padding: 0px
 	border-style: solid
 	border-color: #CCCCCC
+    background-color: black
 
 img.grid
 	padding: 0px
+    margin: 0px
 
 table.vars
     border: 1px
