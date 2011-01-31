@@ -23,7 +23,7 @@ table.grid
 	padding: 0px
 	border-style: solid
 	border-color: #CCCCCC
-    background-color: #CCCCCC
+
 
 td.grid
 	height: 20px
@@ -31,7 +31,7 @@ td.grid
 	padding: 0px
 	border-style: solid
 	border-color: #CCCCCC
-    background-color: black
+
 
 img.grid
 	padding: 0px

@@ -1,3 +1,3 @@
-To be created.
+To initialize the server type the following command: runhaskell simple-server.hs
 
-Will have all commands, and other information to successfully start and use the system.
+To find all internal commands type /help within the chat interface.
