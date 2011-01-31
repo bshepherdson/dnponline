@@ -14,6 +14,9 @@ import Control.Concurrent.STM.TChan
 import Data.Maybe (fromMaybe)
 
 
+import Data.List (sortBy)
+import Data.Ord (comparing)
+
 import Handler.Commands
 import Handler.Util
 
@@ -50,6 +53,14 @@ getCheckInR = do
                                                                         $ map ($ t) [show.tokenX, show.tokenY, file, tokenName]) 
                                                          ts
                                 )]
+    MessageVars vs -> do
+      let sorted = sortBy (comparing fst) . sortBy (comparing (fst.snd)) $ vs  -- sorted by nick and then by var name
+      liftIO $ putStrLn $ "Sending vars to " ++ show uid
+      jsonToRepJson $ jsonMap [("type", jsonScalar "vars"),
+                               ("vars", jsonList $ map (\v -> zipJson ["nick","var","value"]
+                                                                      $ map ($ v) [fst, fst.snd, snd.snd])
+                                                       vs
+                               )]
 
 
 getSayR :: Handler RepJson

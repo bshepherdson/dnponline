@@ -23,4 +23,9 @@ Command
     name String Eq
     command String
     UniqueCommand user name
+Var
+    user UserId Eq
+    name String Eq
+    value String Eq
+    UniqueVar user name
 |]

@@ -71,6 +71,7 @@ data Client = Client
     { channel :: TChan Message
     , clientNick :: String
     , lastToken :: Maybe String
+    , vars :: Map String String
     }
 
 data Token = Token
@@ -84,6 +85,7 @@ data Token = Token
 data Message = MessageChat String String -- sender, message
              | MessageBoard [Token]
              | MessageWhisper String String -- sender, message
+             | MessageVars [(String,(String,String))] -- nick, var name, value
 
 
 -- | A useful synonym; most of the handler functions in your application

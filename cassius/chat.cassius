@@ -34,3 +34,16 @@ td.grid
 
 img.grid
 	padding: 0px
+
+table.vars
+    border: 1px
+    padding: 0px
+    border-style: solid
+    border-color: #CCCCCC
+
+td.vars
+    border: 1px
+    padding: 0px
+    border-style: solid
+    border-color: #CCCCCC
+

@@ -82,6 +82,15 @@ sendBoardUpdate t (UpdateUser uid) = do
     Just (Client { channel = chan }) -> writeTChan chan $ MessageBoard (concatMap M.elems $ M.elems (board t))
 
 
+sendVarUpdate :: Table -> UpdateWhom -> STM ()
+sendVarUpdate t whom = sendVarUpdate' t whom . concatMap (\c -> map ((,) (clientNick c)) (M.assocs (vars c))) . M.elems . clients $ t
+  where sendVarUpdate' t UpdateAll allvars = mapM_ (\uid -> sendVarUpdate' t (UpdateUser uid) allvars) $ M.keys (clients t)
+        sendVarUpdate' t (UpdateUser uid) allvars = do
+          case M.lookup uid (clients t) of
+            Nothing -> error "can't happen"
+            Just (Client { channel = chan }) -> writeTChan chan $ MessageVars allvars
+
+
 modifyTVar :: TVar a -> (a -> a) -> STM ()
 modifyTVar tv f = do
   x <- readTVar tv

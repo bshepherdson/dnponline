@@ -28,6 +28,7 @@ var needsToCheckIn = false;
 var waitBeforeCheckIn = false;
 
 var mapTokens = [];
+var userVars  = [];
 
 function checkIn () {
     $.ajax({ dataType: "json", url: "/check", data: { }, cache: false,
@@ -38,6 +39,8 @@ function checkIn () {
             updateMap(data.tokens);
         } else if(data.type == "whisper") {
             display("Whisper from " + data.sender + ": " + data.content);
+        } else if(data.type == "vars") {
+            updateVars(data.vars);
         }
     }, 
     error: function() {
@@ -65,12 +68,21 @@ function updateMap(newTokens) {
         var t = newTokens[i];
         var squareId = "sq_" + t.x + "x" + t.y;
         var square = $("#"+squareId);
-        console.log(t);
-        console.log("t: x=" + t.x +", y="+ t.y+ ", image="+t.image+", name="+t.name);
         square.html("<img class=\"grid\" src=\"/static/images/" + t.image + "\" />");
     }
 
     mapTokens = newTokens;
 }
 
+function updateVars(newVars) {
+    var varsHtml = "<table class='vars'><th class='vars'><td class='vars'>Nick</td><td class='vars'>Variable</td><td class='vars'>Value</td></th>";
+
+    for(i in newVars){
+        var v = newVars[i];
+        varsHtml += "<tr class='vars'><td class='vars'>" + v.nick + "</td><td class='vars'>" + v.var + "</td><td class='vars'>" + v.value + "</td></tr>";
+        $("#varstable").html(varsHtml);
+    }
+
+    userVars = newVars;
+}
 

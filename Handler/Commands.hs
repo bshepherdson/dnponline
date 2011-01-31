@@ -63,6 +63,7 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("define", cmdDefine)
                         , ("def",    cmdDefine)
                         , ("undef",  cmdUndef)
+                        , ("var",    cmdVar)
                         ]
 
 
@@ -97,6 +98,7 @@ helpList = [ ("nick",    ("Changes your nickname.", syntaxNick))
 
            , ("define",  ("Defines custom commands as shortcuts.", syntaxDefine))
            , ("undef",   ("Deletes a user-defined command.", syntaxUndef))
+           , ("var",     ("Defines a variable that everyone can see.", syntaxVar))
            ]
 
 helpMap = M.fromList helpList
@@ -115,6 +117,9 @@ cmdNick uid u nick cmd args = do
   setSession "nick" newnick
   updateClient uid $ \c -> Just c { clientNick = newnick }
   send uid serverName $ nick ++ " is now known as " ++ newnick
+  t <- getTable uid
+  liftIO . atomically $ sendVarUpdate t UpdateAll -- so the name refreshes for everyone.
+  return ResponseSuccess
 
 
 
@@ -123,15 +128,17 @@ syntaxHost = "Syntax: /host <table name> <password for table>"
 cmdHost :: Cmd
 cmdHost uid u nick cmd [name,pass] = do
   dnp <- getYesod
+  vars <- fmap (map (\(_, Var _ var val) -> (var,val))) . runDB $ selectList [VarUserEq uid] [] 0 0
   liftIO . atomically $ do
     ts <- readTVar $ tables dnp
     case M.lookup name ts of
       Just _  -> return $ ResponsePrivate $ "Table " ++ name ++ " already exists."
       Nothing -> do
         chan <- newTChan
-        let t = Table (M.singleton uid (Client chan ("user"++ showPersistKey uid) Nothing)) pass uid M.empty
+        let t = Table (M.singleton uid (Client chan ("user"++ showPersistKey uid) Nothing (M.fromList vars))) pass uid M.empty
         writeTVar (tables dnp) $ M.insert name t ts
         modifyTVar (userTables dnp) $ M.insert uid name
+        sendVarUpdate t UpdateAll
         return $ ResponsePrivate $ "Table " ++ name ++ " successfully created."
   
 
@@ -141,6 +148,7 @@ syntaxJoin = "Syntax: /join <table name> <password>"
 cmdJoin :: Cmd
 cmdJoin uid u nick cmd [name,pass] = do
   dnp <- getYesod
+  vars <- fmap (map (\(_, Var _ var val) -> (var,val))) . runDB $ selectList [VarUserEq uid] [] 0 0
   liftIO . atomically $ do
     userTable <- readTVar $ userTables dnp
     ts <- readTVar $ tables dnp
@@ -154,13 +162,14 @@ cmdJoin uid u nick cmd [name,pass] = do
               False -> return $ ResponsePrivate $ "Bad password for table " ++ name
               True  -> do
                 chan <- newTChan
-                let t'  = t { clients = M.insert uid (Client chan ("user" ++ showPersistKey uid) Nothing) (clients t) }
+                let t'  = t { clients = M.insert uid (Client chan ("user" ++ showPersistKey uid) Nothing (M.fromList vars)) (clients t) }
                     userTable' = M.insert uid name userTable
                     ts' = M.insert name t' ts
                 writeTVar (userTables dnp) userTable'
                 writeTVar (tables dnp) ts'
                 rawSend t serverName $ nick ++ " has joined the table." -- deliberately t, sends to everyone else, not the new client
                 sendBoardUpdate t' (UpdateUser uid)
+                sendVarUpdate   t' (UpdateUser uid)
                 return $ ResponsePrivate $ "Successfully joined table " ++ name
 cmdJoin uid u nick cmd _ = return $ ResponsePrivate $ syntaxJoin
 
@@ -403,5 +412,22 @@ cmdUndef uid u nick cmd [name] = do
     _   -> return $ ResponsePrivate $ "Multiple user-defined commands named '" ++ name ++ "' were found. This should be impossible, there has been a bug. Please notify the developers."
 
 cmdUndef uid u nick cmd _ = return $ ResponsePrivate syntaxUndef
+
+
+
+syntaxVar :: String
+syntaxVar = "Syntax: /var <name> <value> -- Sets the variable 'name' to have the value 'value'. Everyone will see the updated value."
+
+
+cmdVar uid u nick cmd [var,value] = do
+  runDB $ do
+    deleteWhere [VarUserEq uid, VarNameEq var]
+    insert $ Var uid var value
+  updateClient uid $ \c -> Just c { vars = M.insert var value (vars c) }
+  send uid serverName $ nick ++ " set '" ++ var ++ "' to '" ++ value ++ "'."
+  t <- getTable uid
+  liftIO . atomically $ sendVarUpdate t UpdateAll
+  return ResponseSuccess
+
 
 
