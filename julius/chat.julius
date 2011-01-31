@@ -7,14 +7,17 @@ $(document).ready(function () {
             }
         });
 
-        // handle the chat history
-        while(histDown.length > 1) {
-            histUp.push(histDown.pop);
+        // shuffle the new command into the history
+        historyIndex = -1;
+        var oldTemp = $("#chatmessage").attr("value");
+        var newTemp;
+        for(var i = 0; i < history.length && i < 10; i++) {
+            newTemp = history[i];
+            history[i] = oldTemp;
+            oldTemp = newTemp;
         }
-        histDown = [];
-        histUp.splice(10,10); // removes up to 10 elements starting from index 10
 
-        histUp.push($("#chatmessage").attr("value"));
+        // and clear the field
         $("#chatmessage").attr("value", "");
     });
 
@@ -30,7 +33,8 @@ $(document).ready(function () {
         }
     });
 
-    $("#chatmessage").keypress(keyHandler);
+    chatMessage = $("#chatmessage");
+    chatMessage.keydown(keyHandler);
 
     checkIn();
 });
@@ -98,29 +102,37 @@ function updateVars(newVars) {
 }
 
 
-// a Haskell-style zipper for the history
-var histUp = [];
-var histDown = [];
-var chatMessage = $("#chatmessage");
+var history = [];
+var historyIndex = -1;
+var currentCommand = null;
+var chatMessage;
 
 function keyHandler(e) {
-    alert("run: " + e.keyCode);
     if(e.keyCode == 38) { // up
         e.preventDefault();
 
-        if(histUp.length > 0) {
-            histDown.push(chatMessage.attr("value"));
-            chatMessage.attr("value", histUp.pop());
+        if(historyIndex < history.length-1) {
+            if(historyIndex < 0) {
+                currentCommand = chatMessage.attr("value"); // store the current command
+            }
+            historyIndex++;
+            chatMessage.attr("value", history[historyIndex]);
+            chatMessage[0].setSelectionRange(10000,10000); // put cursor at the right edge
         }
     } else if(e.keyCode == 40) { //down
         e.preventDefault();
 
-        if(histDown.length > 0) { 
-            histUp.push(chatMessage.attr("value"));
-            chatMessage.attr("value", histDown.pop());
+        var value;
+        if(historyIndex == 0) { 
+            historyIndex = -1;
+            value = currentCommand;
+        } else if(historyIndex > 0) {
+            historyIndex--;
+            value = history[historyIndex];
         }
+        chatMessage.attr("value", value);
+        chatMessage[0].setSelectionRange(10000,10000); // put cursor at the right edge.
     }
 }
-
 
 
