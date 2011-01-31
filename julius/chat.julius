@@ -6,6 +6,15 @@ $(document).ready(function () {
                 display("*** " + o.message);
             }
         });
+
+        // handle the chat history
+        while(histDown.length > 1) {
+            histUp.push(histDown.pop);
+        }
+        histDown = [];
+        histUp.splice(10,10); // removes up to 10 elements starting from index 10
+
+        histUp.push($("#chatmessage").attr("value"));
         $("#chatmessage").attr("value", "");
     });
 
@@ -20,6 +29,8 @@ $(document).ready(function () {
             }
         }
     });
+
+    $("#chatmessage").keypress(keyHandler);
 
     checkIn();
 });
@@ -85,4 +96,31 @@ function updateVars(newVars) {
 
     userVars = newVars;
 }
+
+
+// a Haskell-style zipper for the history
+var histUp = [];
+var histDown = [];
+var chatMessage = $("#chatmessage");
+
+function keyHandler(e) {
+    alert("run: " + e.keyCode);
+    if(e.keyCode == 38) { // up
+        e.preventDefault();
+
+        if(histUp.length > 0) {
+            histDown.push(chatMessage.attr("value"));
+            chatMessage.attr("value", histUp.pop());
+        }
+    } else if(e.keyCode == 40) { //down
+        e.preventDefault();
+
+        if(histDown.length > 0) { 
+            histUp.push(chatMessage.attr("value"));
+            chatMessage.attr("value", histDown.pop());
+        }
+    }
+}
+
+
 
