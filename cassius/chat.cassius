@@ -1,22 +1,28 @@
 h1
 	text-align: center
-	background-color:#000000
 	color:#CCCCCC
 	font-family:Helvetica,Arial,Helmet,Freesans,sans-serif
 
 form#chatform
 	text-align: center
-	background-color:#000000
+	text-color: #CCCCCC
 	font-family:Helvetica,Arial,Helmet,Freesans,sans-serif
-
+	border-color: #CCCCCC
+	
 textarea#chattextarea
-	background-color:#999999
+	border: 1px
+	border-style: solid
+	background-color:transparent
 	font-family:Helvetica,Arial,Helmet,Freesans,sans-serif
+	color: #CCCCCC
+	border-color: #CCCCCC
 
 input#chatmessage
-	background-color:#CCCCCC
+	border: 1px
+	border-style: solid
+	background-color:transparent
 	font-family:Helvetica,Arial,Helmet,Freesans,sans-serif
-
+	color: #CCCCCC
 table.grid
 	text-align: center
 	border: 1px
