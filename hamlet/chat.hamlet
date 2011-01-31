@@ -1,4 +1,4 @@
-%h1 Chat Module
+%h1 Digital Game Table
 %div!align=center
     ^gridWidget^
 %form#chatform
