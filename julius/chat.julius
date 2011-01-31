@@ -1,11 +1,7 @@
 $(document).ready(function () {
     $("#chatform").submit(function (e) {
         e.preventDefault();
-        $.getJSON("/say", { message: $("#chatmessage").attr("value") }, function(o) {
-            if(o.status == "private") {
-                display("*** " + o.message);
-            }
-        });
+        send($("#chatmessage").attr("value"));
 
         // shuffle the new command into the history
         historyIndex = -1;
@@ -36,6 +32,9 @@ $(document).ready(function () {
     chatMessage = $("#chatmessage");
     chatMessage.keydown(keyHandler);
 
+    // attach the click() event to all the td cells
+    $("td.grid").click(clickHandler);
+
     checkIn();
 });
 
@@ -44,6 +43,15 @@ var waitBeforeCheckIn = false;
 
 var mapTokens = [];
 var userVars  = [];
+
+function send(msg) {
+    $.getJSON("/say", { message: msg }, function(o) {
+        if(o.status == "private") {
+            display("*** " + o.message);
+        }
+    });
+}
+
 
 function checkIn () {
     $.ajax({ dataType: "json", url: "/check", data: { }, cache: false,
@@ -76,8 +84,6 @@ function display (msg) {
 function updateMap(newTokens) {
     // first hack: just remove them all and replace them with the new ones
     $("td.grid").html("");
-
-    console.log(newTokens);
 
     for (i in newTokens) {
         var t = newTokens[i];
@@ -134,5 +140,30 @@ function keyHandler(e) {
         chatMessage[0].setSelectionRange(10000,10000); // put cursor at the right edge.
     }
 }
+
+var selected = null;
+
+function clickHandler(e) {
+    var id = e.currentTarget.id;
+    var x = id.slice(id.indexOf("_")+1, id.indexOf("x"));
+    var y = id.slice(id.indexOf("x")+1);
+
+    if(selected){
+        // move the selected element to the given location with a /place command
+        var cmd = "/place " + x + " " + y + " " + selected.image + " " + selected.name;
+        selected = null;
+        send(cmd);
+    } else {
+        // check if there's an image under the spot where we clicked
+        for(i in mapTokens) {
+            if(mapTokens[i].x == x && mapTokens[i].y == y) {
+                selected = mapTokens[i];
+            }
+        }
+
+    }
+
+}
+
 
 
