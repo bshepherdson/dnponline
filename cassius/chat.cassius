@@ -50,3 +50,7 @@ td.vars
     border-style: solid
     border-color: #CCCCCC
 
+td.gridhighlight
+    border-color: #FF0000
+    background-color: #CC0000
+

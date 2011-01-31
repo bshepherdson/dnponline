@@ -151,6 +151,7 @@ function clickHandler(e) {
     if(selected){
         // move the selected element to the given location with a /place command
         var cmd = "/place " + x + " " + y + " " + selected.image + " " + selected.name;
+        $("td.gridhighlight").removeClass("gridhighlight");
         selected = null;
         send(cmd);
     } else {
@@ -159,6 +160,10 @@ function clickHandler(e) {
             if(mapTokens[i].x == x && mapTokens[i].y == y) {
                 selected = mapTokens[i];
             }
+        }
+
+        if(selected){
+            $("#sq_" + x + "x" + y).addClass("gridhighlight");
         }
 
     }
