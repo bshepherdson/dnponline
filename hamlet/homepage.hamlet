@@ -4,7 +4,7 @@ $maybe mu u
         You are logged in as $userIdent.snd.u$. $
         %a!href=@AuthR.LogoutR@ Logout
 	%br	
-	%a!href=@ChatR@ Chat
+	%a!href=@TableR@ Table
 	
 $nothing
     %p

@@ -101,11 +101,11 @@ runCommand uid u nick msg = send uid nick msg
 
 
 
-getChatR :: Handler RepHtml
-getChatR = defaultLayout $ do
-  setTitle "Dice and Paper Online - Chat"
+getTableR :: Handler RepHtml
+getTableR = defaultLayout $ do
+  setTitle "Dice and Paper Online - Table"
   addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
-  $(widgetFile "chat")
+  $(widgetFile "table")
 
 
 

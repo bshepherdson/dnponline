@@ -126,7 +126,7 @@ mkYesodData "DnP" [$parseRoutes|
 
 /check CheckInR GET
 /say   SayR   GET
-/chat  ChatR  GET
+/table TableR  GET
 |]
 
 -- Please see the documentation for the Yesod typeclass. There are a number
@@ -182,7 +182,7 @@ instance YesodAuth DnP where
     type AuthId DnP = UserId
 
     -- Where to send a user after successful login
-    loginDest _ = ChatR
+    loginDest _ = TableR
     -- Where to send a user after logout
     logoutDest _ = RootR
 
