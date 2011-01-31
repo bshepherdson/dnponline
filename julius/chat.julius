@@ -75,7 +75,7 @@ function updateMap(newTokens) {
 }
 
 function updateVars(newVars) {
-    var varsHtml = "<table class='vars'><th class='vars'><td class='vars'>Nick</td><td class='vars'>Variable</td><td class='vars'>Value</td></th>";
+    var varsHtml = "<table class='vars'><tr class='vars'><td class='vars'>Nick</td><td class='vars'>Variable</td><td class='vars'>Value</td></tr>";
 
     for(i in newVars){
         var v = newVars[i];
