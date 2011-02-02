@@ -65,14 +65,14 @@ send uid nick msg = do
 
 
 -- userId of sender, userId of receiver, sender nick, message
-sendTo :: UserId -> UserId -> String -> String -> Handler CommandResponse
-sendTo sendId recvId nick msg = do
+sendTo :: UserId -> UserId -> Message -> Handler ()
+sendTo sendId recvId msg = do
   t <- getTable sendId
   recv <- case M.lookup recvId (clients t) of
             Nothing -> sendPrivate $ "Error: userId " ++ showPersistKey recvId ++ " not found on this table."
             Just x  -> return x
-  liftIO . atomically $ writeTChan (channel recv) (MessageWhisper nick msg)
-  return ResponseSuccess
+  liftIO . atomically $ writeTChan (channel recv) msg
+  return ()
 
 
 

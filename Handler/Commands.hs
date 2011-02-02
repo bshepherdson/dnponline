@@ -41,6 +41,8 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("r",    cmdRoll)
                         , ("proll",cmdRoll)
                         , ("pr",   cmdRoll)
+                        , ("gmroll",cmdRoll)
+                        , ("gmr",  cmdRoll)
                         , ("d3",   cmdRoll)
                         , ("d4",   cmdRoll)
                         , ("d6",   cmdRoll)
@@ -79,6 +81,7 @@ helpList = [ ("nick",    ("Changes your nickname.", syntaxNick))
 
            , ("roll",    ("Rolls dice and shows the result to everyone.", syntaxRoll))
            , ("proll",   ("Rolls dice and only shows the result to you.", syntaxRoll))
+           , ("gmroll",  ("Rolls dice and only shows the result to you and the GM.", syntaxRoll))
            , ("d3",      ("Shortcut to roll 1d3.", "Syntax: /d3"))
            , ("d4",      ("Shortcut to roll 1d4.", "Syntax: /d4"))
            , ("d6",      ("Shortcut to roll 1d6.", "Syntax: /d6"))
@@ -188,7 +191,7 @@ cmdDebug _ _ _ _ _ = do
 
 
 syntaxRoll :: String
-syntaxRoll = "Syntax: /roll AdB+C\nExamples: /roll 2d6-2   /roll d20   /roll 1d8+3\n\nSyntax: /proll AdB+C -- Roll privately to yourself. Alias: pr."
+syntaxRoll = "Syntax: /roll AdB+C\nExamples: /roll 2d6-2   /roll d20   /roll 1d8+3\n\nSyntax: /proll AdB+C -- Roll privately to yourself. Alias: pr.\nSyntax: /gmroll AdB+C -- Roll to yourself and the GM. Alias: gmr."
 
 cmdRoll :: Cmd
 cmdRoll uid u nick "d3"   _ = cmdRoll uid u nick "roll" ["1d3"]
@@ -201,6 +204,7 @@ cmdRoll uid u nick "d20"  _ = cmdRoll uid u nick "roll" ["1d20"]
 cmdRoll uid u nick "d100" _ = cmdRoll uid u nick "roll" ["1d100"]
 cmdRoll uid u nick "d%"   _ = cmdRoll uid u nick "roll" ["1d100"]
 cmdRoll uid u nick "pr"   r = cmdRoll uid u nick "proll" r
+cmdRoll uid u nick "gmr"  r = cmdRoll uid u nick "gmroll" r
 cmdRoll uid u nick _ []     = return $ ResponsePrivate syntaxRoll
 cmdRoll uid u nick cmd (x:_)  = do
     case parse parseDice "" (case x of ('d':_) -> '1':x; _ -> x) of
@@ -211,8 +215,12 @@ cmdRoll uid u nick cmd (x:_)  = do
                         rolls <- replicateM a $ liftIO (randomRIO (1,b))
                         let total = sum' rolls + c
                         case cmd of
-                          "roll" -> send uid serverName $ nick ++ " rolled " ++ show a ++ "d" ++ show b ++ (if c < 0 then show c else "+" ++ show c) ++ " and got " ++ show total
-                          "proll" -> return $ ResponsePrivate $ "You privately rolled " ++ show a ++ "d" ++ show b ++ (if c < 0 then show c else "+" ++ show c) ++ " and got " ++ show total
+                          "roll" -> send uid serverName $ nick ++ " rolled " ++ showDice a b c ++ " and got " ++ show total ++ "."
+                          "proll" -> return $ ResponsePrivate $ "You privately rolled " ++ showDice a b c ++ " and got " ++ show total ++ "."
+                          "gmroll" -> do
+                            t <- getTable uid
+                            when (uid /= gm t) $ sendTo uid (gm t) $ MessageChat serverName $ nick ++ " privately rolled " ++ showDice a b c ++ " and got " ++ show total ++ "."
+                            return $ ResponsePrivate $ "You GM-rolled " ++ showDice a b c ++ " and got " ++ show total ++ "."
   where parseDice = do
           a <- many1 digit
           char 'd'
@@ -224,6 +232,7 @@ cmdRoll uid u nick cmd (x:_)  = do
                     (Just x, Nothing) -> read x
                     (Nothing,Just y)  -> read y
           return ((read a, read b, c) :: (Int,Int,Int))
+        showDice a b c = show a ++ "d" ++ show b ++ (if c < 0 then show c else "+" ++ show c)
 
 
 
@@ -374,7 +383,7 @@ syntaxWhisper = "Syntax: /whisper <nickname> <msg> -- send a message privately t
 cmdWhisper uid u nick cmd (targetName:msgwords) = do
   let msg = unwords msgwords
   (targetId, target) <- getClientByNick uid targetName
-  sendTo uid targetId nick msg
+  sendTo uid targetId $ MessageWhisper nick msg
   return $ ResponsePrivate $ "Whisper to " ++ clientNick target ++ ": " ++ msg
 
 cmdWhisper uid u nick cmd _ = sendPrivate "You must supply a target user and a message."
