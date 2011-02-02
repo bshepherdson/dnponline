@@ -239,8 +239,12 @@ cmdPlace uid u nick cmd [x,y] = do
     (Nothing,_) -> return $ ResponsePrivate "Failed to parse 'x'"
     (_,Nothing) -> return $ ResponsePrivate "Failed to parse 'y'"
     (Just rx, Just ry) -> do
+      when (rx < 0 || ry < 0 || rx >= gridCols || ry >= gridRows) $ sendSuccess -- do nothing silently when placing outside the grid
       lt <- getLastToken uid syntaxPlace
-      updateBoard uid lt $ \x -> case x of Nothing -> Nothing; Just tok -> Just tok { tokenX = rx, tokenY = ry }
+      t <- getTable uid
+      case getTokenAt rx ry t of
+        Nothing -> updateBoard uid lt $ \x -> case x of Nothing -> Nothing; Just tok -> Just tok { tokenX = rx, tokenY = ry }
+        Just _  -> return ResponseSuccess -- do nothing, silently.
 
 
 cmdPlace uid u nick cmd [x,y,image] = do
@@ -248,19 +252,28 @@ cmdPlace uid u nick cmd [x,y,image] = do
     (Nothing,_) -> return $ ResponsePrivate "Failed to parse 'x'"
     (_,Nothing) -> return $ ResponsePrivate "Failed to parse 'y'"
     (Just rx, Just ry) -> do
+      when (rx < 0 || ry < 0 || rx >= gridCols || ry >= gridRows) $ sendSuccess -- do nothing silently when placing outside the grid
       t <- getTable uid
-      -- find all tokens on the subboard using the given image
-      let subboard = fromMaybe M.empty $ M.lookup uid (board t)
-      case M.elems $ M.filter ((== image) . file) subboard of
-        []    -> updateBoard uid image $ \_ -> Just (Token rx ry image image)
-        [tok] -> updateBoard uid (tokenName tok) $ \_ -> Just tok { tokenX = rx, tokenY = ry }
-        _     -> sendPrivate "Ambiguous command. Please specify an image name instead."
+      case getTokenAt rx ry t of
+        Just _  -> sendSuccess -- do nothing, silently
+        Nothing -> do
+          -- find all tokens on the subboard using the given image
+          let subboard = fromMaybe M.empty $ M.lookup uid (board t)
+          case M.elems $ M.filter ((== image) . file) subboard of
+            []    -> updateBoard uid image $ \_ -> Just (Token rx ry image image)
+            [tok] -> updateBoard uid (tokenName tok) $ \_ -> Just tok { tokenX = rx, tokenY = ry }
+            _     -> sendPrivate "Ambiguous command. Please specify an image name instead."
 
 cmdPlace uid u nick cmd [x,y,image,name] = do
   case (maybeRead x, maybeRead y) of
     (Nothing,_) -> return $ ResponsePrivate "Failed to parse 'x'"
     (_,Nothing) -> return $ ResponsePrivate "Failed to parse 'y'"
-    (Just rx, Just ry) -> updateBoard uid name $ \_ -> Just (Token rx ry image name)
+    (Just rx, Just ry) -> do
+      when (rx < 0 || ry < 0 || rx >= gridCols || ry >= gridRows) $ sendSuccess -- do nothing silently when placing outside the grid
+      t <- getTable uid
+      case getTokenAt rx ry t of
+        Just _  -> sendSuccess
+        Nothing -> updateBoard uid name $ \_ -> Just (Token rx ry image name)
 
 
 syntaxMove :: String
@@ -270,14 +283,26 @@ cmdMove uid u nick cmd [x,y] = do
   rx <- case maybeRead x of Just a -> return a; Nothing -> sendPrivate "Failed to parse 'x'"
   ry <- case maybeRead y of Just a -> return a; Nothing -> sendPrivate "Failed to parse 'y'"
   lt <- getLastToken uid syntaxMove
-  updateBoard uid lt $ \x -> case x of Nothing -> Nothing; Just tok -> Just tok { tokenX = tokenX tok + rx, tokenY = tokenY tok - ry }
+  t  <- getTable uid
+  updateBoard uid lt $ move rx ry t
 
 cmdMove uid u nick cmd [x,y,name] = do
   rx <- case maybeRead x of Just a -> return a; Nothing -> sendPrivate "Failed to parse 'x'"
   ry <- case maybeRead y of Just a -> return a; Nothing -> sendPrivate "Failed to parse 'y'"
-  updateBoard uid name $ \x -> case x of Nothing -> Nothing; Just tok -> Just tok { tokenX = tokenX tok + rx, tokenY = tokenY tok - ry }
+  t  <- getTable uid
+  updateBoard uid name $ move rx ry t
 
 cmdMove uid u nick cmd _ = sendPrivate syntaxMove
+
+-- helper function for cmdMove
+move rx ry t Nothing    = Nothing
+move rx ry t (Just tok) = let x' = tokenX tok + rx
+                              y' = tokenY tok - ry
+                          in  case (x' < 0 || y' < 0 || x' >= gridCols || y' >= gridRows,   getTokenAt x' y' t) of
+                                (True,_)    -> Just tok
+                                (_,Just _)  -> Just tok
+                                (_,Nothing) -> Just tok { tokenX = x', tokenY = y' }
+
 
 
 syntaxRemove :: String

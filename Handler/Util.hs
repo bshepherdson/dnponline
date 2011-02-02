@@ -19,6 +19,11 @@ import Data.Char (toLower)
 data CommandResponse = ResponseSuccess | ResponsePrivate String
 
 
+gridCols, gridRows :: Int
+gridCols = 30
+gridRows = 15
+
+
 -- name by which the server appears in chat messages
 serverName = "::!:" -- will appear as, eg.:  ::!:: oldnick is now known as newnick
 
@@ -116,9 +121,13 @@ sendPrivate :: String -> Handler a
 sendPrivate s = do
   json <- jsonToRepJson $ zipJson ["status","message"] ["private",s]
   sendResponse json
-  return undefined
+  return undefined -- unreachable
 
-
+sendSuccess :: Handler a
+sendSuccess = do
+  json <- jsonToRepJson $ zipJson ["status"] ["success"]
+  sendResponse json
+  return undefined -- unreachable
 
 zipJson x y = jsonMap $ map (id *** jsonScalar) $ zip x y
 
@@ -158,4 +167,11 @@ getClientById uid = do
   t <- getTable uid
   return $ M.lookup uid (clients t)
 
+
+getTokenAt :: Int -> Int -> Table -> Maybe Token
+getTokenAt x y t = let tokens = concatMap M.elems $ M.elems (board t)
+                       matches = filter (\(Token { tokenX=tx, tokenY=ty }) -> tx==x && ty==y ) tokens
+                   in  case matches of
+                         []    -> Nothing
+                         (x:_) -> Just x
 

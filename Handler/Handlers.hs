@@ -110,9 +110,6 @@ getTableR = defaultLayout $ do
 
 
 
-gridCols = 30
-gridRows = 15
-
 gridWidget :: Widget ()
 gridWidget = [$hamlet|
   %table.grid
