@@ -115,9 +115,8 @@ syntaxNick = "Syntax: /nick <new nickname>"
 
 cmdNick :: Cmd
 cmdNick uid u nick cmd []   = return $ ResponsePrivate syntaxNick
-cmdNick uid u nick cmd args = do
-  let newnick = unwords args
-  setSession "nick" newnick
+cmdNick uid u nick cmd (newnick:_) = do
+  runDB $ update uid [UserNick newnick]
   updateClient uid $ \c -> Just c { clientNick = newnick }
   send uid serverName $ nick ++ " is now known as " ++ newnick
   t <- getTable uid
@@ -138,7 +137,7 @@ cmdHost uid u nick cmd [name,pass] = do
       Just _  -> return $ ResponsePrivate $ "Table " ++ name ++ " already exists."
       Nothing -> do
         chan <- newTChan
-        let t = Table (M.singleton uid (Client chan ("user"++ showPersistKey uid) Nothing (M.fromList vars))) pass uid M.empty
+        let t = Table (M.singleton uid (Client chan nick Nothing (M.fromList vars))) pass uid M.empty
         writeTVar (tables dnp) $ M.insert name t ts
         modifyTVar (userTables dnp) $ M.insert uid name
         sendVarUpdate t UpdateAll
@@ -165,7 +164,7 @@ cmdJoin uid u nick cmd [name,pass] = do
               False -> return $ ResponsePrivate $ "Bad password for table " ++ name
               True  -> do
                 chan <- newTChan
-                let t'  = t { clients = M.insert uid (Client chan ("user" ++ showPersistKey uid) Nothing (M.fromList vars)) (clients t) }
+                let t'  = t { clients = M.insert uid (Client chan nick Nothing (M.fromList vars)) (clients t) }
                     userTable' = M.insert uid name userTable
                     ts' = M.insert name t' ts
                 writeTVar (userTables dnp) userTable'

@@ -191,7 +191,7 @@ instance YesodAuth DnP where
         case x of
             Just (uid, _) -> return $ Just uid
             Nothing -> do
-                fmap Just $ insert $ User (credsIdent creds) Nothing
+                  fmap Just $ insert $ User (credsIdent creds) Nothing ("user" ++ take 10 (credsIdent creds))
 
     showAuthId _ = showIntegral
     readAuthId _ = readIntegral
@@ -253,7 +253,7 @@ instance YesodAuthEmail DnP where
                 case emailUser e of
                     Just uid -> return $ Just uid
                     Nothing -> do
-                        uid <- insert $ User email Nothing
+                        uid <- insert $ User email Nothing (takeWhile (/='@') email)
                         update eid [EmailUser $ Just uid, EmailVerkey Nothing]
                         return $ Just uid
     getPassword = runDB . fmap (join . fmap userPassword) . get

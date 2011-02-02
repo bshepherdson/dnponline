@@ -12,6 +12,7 @@ share2 mkPersist (mkMigrate "migrateAll") [$persist|
 User
     ident String
     password String Maybe Update
+    nick String Update
     UniqueUser ident
 Email
     email String

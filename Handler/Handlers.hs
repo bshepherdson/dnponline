@@ -66,10 +66,9 @@ getCheckInR = do
 getSayR :: Handler RepJson
 getSayR = do
   (uid,u) <- requireAuth
-  mnick <- lookupSession "nick"
   mmsg  <- lookupGetParam "message"
-  let nick = fromMaybe ("user" ++ showPersistKey uid) mnick
-      msg  = fromMaybe "" mmsg -- blank messages won't get sent
+  let msg  = fromMaybe "" mmsg -- blank messages won't get sent
+      nick = userNick u
   liftIO $ putStrLn $ nick ++ " (" ++ show uid ++ ") said: " ++ msg
   res <- case msg of
            "" -> return $ ResponseSuccess
