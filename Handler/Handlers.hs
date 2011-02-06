@@ -25,8 +25,8 @@ import Handler.Util
 getRootR :: Handler RepHtml
 getRootR = do
     mu <- maybeAuth
+    h2id <- newIdent
     defaultLayout $ do
-        h2id <- newIdent
         setTitle "Dice and Paper Online"
         addWidget $(widgetFile "homepage")
 

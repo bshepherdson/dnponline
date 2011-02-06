@@ -28,6 +28,7 @@ import Yesod (addWidget, addCassius, addJulius)
 import Data.Monoid (mempty)
 import System.Directory (doesFileExist)
 import Control.Exception.Peel
+import Control.Monad.IO.Peel
 
 -- | The base URL for your application. This will usually be different for
 -- development and production. Yesod automatically constructs URLs for you,

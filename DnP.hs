@@ -172,7 +172,7 @@ instance Yesod DnP where
 -- How to run database actions.
 instance YesodPersist DnP where
     type YesodDB DnP = SqlPersist
-    runDB db = fmap connPool getYesod >>= Settings.runConnectionPool db
+    runDB db = liftIOHandler $ fmap connPool getYesod >>= Settings.runConnectionPool db
 
 instance YesodAuth DnP where
     type AuthId DnP = UserId
@@ -225,6 +225,7 @@ instance YesodAuthEmail DnP where
                 , ""
                 , "Thank you"
                 ]
+            , partHeaders = []
             }
         htmlPart = Part
             { partType = "text/html; charset=utf-8"
@@ -236,6 +237,7 @@ instance YesodAuthEmail DnP where
     <a href="#{verurl}">#{verurl}
 <p>Thank you
 |]
+            , partHeaders = []
             }
 -}
     getVerifyKey = runDB . fmap (join . fmap emailVerkey) . get
