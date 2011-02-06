@@ -127,6 +127,9 @@ mkYesodData "DnP" [$parseRoutes|
 /check CheckInR GET
 /say   SayR   GET
 /table TableR  GET
+
+/manual ManualR GET
+/syntax/#String SyntaxR GET
 |]
 
 -- Please see the documentation for the Yesod typeclass. There are a number

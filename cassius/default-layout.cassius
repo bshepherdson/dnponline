@@ -3,7 +3,3 @@ body
     background-color: #000000
     color: #CCCCCC
     text-align: center
-    background-attachment: fixed
-    background-repeat: no-repeat
-    background-image: url(../images/background3.jpg)
-    background-position: center

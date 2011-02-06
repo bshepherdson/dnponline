@@ -13,6 +13,5 @@ $nothing
     <p>
         \You are not logged in. 
         <a href="@{AuthR LoginR}">Login now
-\
-        \.
-<a href="/static/docs/manual.pdf">Manual
+
+<p>Read the <a href="@{ManualR}">manual</a> to learn about Dice and Paper.

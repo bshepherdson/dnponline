@@ -2,6 +2,8 @@
 module Handler.Commands (
     commandMap
   , CommandResponse (..)
+  , helpMap
+  , helpDetails
 ) where
 
 import DnP
@@ -70,7 +72,8 @@ commandMap = M.fromList [ ("nick", cmdNick)
 
 
 
-helpList = [ ("nick",    ("Changes your nickname.", syntaxNick))
+chatHelpSummary = ("Chat Commands", "These commands deal with hosting and joining tables, changing your nickname, and so on.")
+chatHelp = [ ("nick",    ("Changes your nickname.", syntaxNick))
            , ("host",    ("Hosts a new table.", syntaxHost))
            , ("join",    ("Joins an existing table.", syntaxJoin))
            , ("who",     ("Lists the members of the current table.", syntaxWho))
@@ -78,8 +81,10 @@ helpList = [ ("nick",    ("Changes your nickname.", syntaxNick))
            , ("gm",      ("Transfers GM powers to someone else. GM only.", syntaxGM))
            , ("whisper", ("Sends a message privately to another user.", syntaxWhisper))
            , ("help",    ("Displays this list, or details on a command.", syntaxHelp))
+           ]
 
-           , ("roll",    ("Rolls dice and shows the result to everyone.", syntaxRoll))
+rollHelpSummary = ("Dice Commands", "These commands roll dice, publicly, privately, or shared with the GM.")
+rollHelp = [ ("roll",    ("Rolls dice and shows the result to everyone.", syntaxRoll))
            , ("proll",   ("Rolls dice and only shows the result to you.", syntaxRoll))
            , ("gmroll",  ("Rolls dice and only shows the result to you and the GM.", syntaxRoll))
            , ("d3",      ("Shortcut to roll 1d3.", "Syntax: /d3"))
@@ -91,18 +96,27 @@ helpList = [ ("nick",    ("Changes your nickname.", syntaxNick))
            , ("d20",     ("Shortcut to roll 1d20.", "Syntax: /d20"))
            , ("d100",    ("Shortcut to roll 1d100.", "Syntax: /d100"))
            , ("d%",      ("Shortcut to roll d%.", "Syntax: /d%"))
+           ]
 
-           , ("place",   ("Places a tile on the board.", syntaxPlace))
+gridHelpSummary = ("Grid Commands", "These commands manipulate the combat grid: placing and moving tokens.")
+gridHelp = [ ("place",   ("Places a tile on the board.", syntaxPlace))
            , ("move",    ("Moves a token on the board.", syntaxMove))
            , ("delete",  ("Removes a token from the board.", syntaxRemove))
            , ("remove",  ("Alias for /delete.", syntaxRemove))
            , ("clear",   ("Removes all your tokens from the board. (GM-only: remove all tokens)", syntaxClear))
            , ("tokens",  ("List the tokens on the board.", syntaxTokens))
+           ]
 
-           , ("define",  ("Defines custom commands as shortcuts.", syntaxDefine))
+varHelpSummary = ("Custom Commands and Variables", "These commands define custom commands and variables. Both are saved for when you return. Commands are private to you, but variables are seen by everyone in the table below the chat box.")
+varHelp  = [ ("define",  ("Defines custom commands as shortcuts.", syntaxDefine))
            , ("undef",   ("Deletes a user-defined command.", syntaxUndef))
            , ("var",     ("Defines a variable that everyone can see.", syntaxVar))
            ]
+
+helpDetails :: [((String, String), [(String, (String, String))])]
+helpDetails = [(chatHelpSummary, chatHelp), (rollHelpSummary, rollHelp), (gridHelpSummary, gridHelp), (varHelpSummary, varHelp)]
+
+helpList = chatHelp ++ rollHelp ++ gridHelp ++ varHelp
 
 helpMap = M.fromList helpList
 
