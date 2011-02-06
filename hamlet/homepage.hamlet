@@ -1,18 +1,18 @@
-%h1 Dice and Paper Online
-
-
-$maybe mu u
-    %p
-        You are logged in as $userIdent.snd.u$. $
-        %a!href=@AuthR.LogoutR@ Logout
-	%br	
-	%a!href=@TableR@ Table
-	%br
-	
+<h1>Dice and Paper Online
+\
+\
+$maybe u <- mu
+    <p>
+        \You are logged in as #{userIdent (snd u)}. 
+        <a href="@{AuthR LogoutR}">Logout
+    <br>
+    <a href="@{TableR}">Table
+    <br>
+    \
 $nothing
-    %p
-        You are not logged in. $
-        %a!href=@AuthR.LoginR@ Login now
-
+    <p>
+        \You are not logged in. 
+        <a href="@{AuthR LoginR}">Login now
+\
         \.
-%a!href="/static/docs/manual.pdf" Manual
+<a href="/static/docs/manual.pdf">Manual

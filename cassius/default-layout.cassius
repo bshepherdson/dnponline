@@ -1,14 +1,9 @@
 body
-    	font-family:Helvetica,Arial,Helmet,Freesans,sans-serif
-	background-color:#000000
-	color:#CCCCCC
-	text-align:center
-	background-attachment:fixed
-	background-repeat:no-repeat
-	background-image:url(../images/background3.jpg)
-	background-position:center
-
-
-
-
-
+    font-family: Helvetica,Arial,Helmet,Freesans,sans-serif
+    background-color: #000000
+    color: #CCCCCC
+    text-align: center
+    background-attachment: fixed
+    background-repeat: no-repeat
+    background-image: url(../images/background3.jpg)
+    background-position: center

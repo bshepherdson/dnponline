@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell, MultiParamTypeClasses #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Controller
     ( withDnP
@@ -17,6 +17,8 @@ import Control.Concurrent.STM.TVar
 -- Import all relevant handler modules here.
 import Handler.Handlers
 
+import Data.ByteString.Char8 (pack)
+
 -- This line actually creates our YesodSite instance. It is the second half
 -- of the call to mkYesodData which occurs in DnP.hs. Please see
 -- the comments there for more details.
@@ -25,7 +27,7 @@ mkYesodDispatch "DnP" resourcesDnP
 -- Some default handlers that ship with the Yesod site template. You will
 -- very rarely need to modify this.
 getFaviconR :: Handler ()
-getFaviconR = sendFile "image/x-icon" "favicon.ico"
+getFaviconR = sendFile (pack "image/x-icon") "favicon.ico"
 
 getRobotsR :: Handler RepPlain
 getRobotsR = return $ RepPlain $ toContent "User-agent: *"
@@ -42,4 +44,4 @@ withDnP f = Settings.withConnectionPool $ \p -> do
     let h = DnP s p ut t
     toWaiApp h >>= f
   where
-    s = fileLookupDir Settings.staticdir typeByExt
+    s = static Settings.staticdir

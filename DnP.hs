@@ -143,12 +143,8 @@ instance Yesod DnP where
 
     -- This is done to provide an optimization for serving static files from
     -- a separate domain. Please see the staticroot setting in Settings.hs
-    urlRenderOverride a (StaticR s) =
-        Just $ uncurry (joinPath a Settings.staticroot) $ format s
-      where
-        format = formatPathSegments ss
-        ss :: Site StaticRoute (String -> Maybe (GHandler Static DnP ChooseRep))
-        ss = getSubSite
+    urlRenderOverride a (StaticR s) = 
+        Just $ uncurry (joinPath a Settings.staticroot) $ renderRoute s
     urlRenderOverride _ _ = Nothing
 
     -- The page to be redirected to when authentication is required.
@@ -176,7 +172,7 @@ instance Yesod DnP where
 -- How to run database actions.
 instance YesodPersist DnP where
     type YesodDB DnP = SqlPersist
-    runDB db = fmap connPool getYesod >>= Settings.runConnectionPool db
+    runDB db = liftIOHandler $ fmap connPool getYesod >>= Settings.runConnectionPool db
 
 instance YesodAuth DnP where
     type AuthId DnP = UserId
@@ -229,17 +225,19 @@ instance YesodAuthEmail DnP where
                 , ""
                 , "Thank you"
                 ]
+            , partHeaders = []
             }
         htmlPart = Part
             { partType = "text/html; charset=utf-8"
             , partEncoding = None
             , partFilename = Nothing
-            , partContent = renderHtml [$hamlet|
-%p Please confirm your email address by clicking on the link below.
-%p
-    %a!href=$verurl$ $verurl$
-%p Thank you
+            , partContent = renderHtml [$hamlet|\
+<p>Please confirm your email address by clicking on the link below.
+<p>
+    <a href="#{verurl}">#{verurl}
+<p>Thank you
 |]
+            , partHeaders = []
             }
     getVerifyKey = runDB . fmap (join . fmap emailVerkey) . get
     setVerifyKey eid key = runDB $ update eid [EmailVerkey $ Just key]

@@ -1,10 +1,10 @@
-%h1 Digital Game Table
-%div!align=center
-    ^gridWidget^
-%form#chatform
-    %textarea#chattextarea!rows=10!cols=80
-    %br
-    %p
-        %input#chatmessage!type=text!size=70!maxlength=1000
-        %input!type=submit!value="Send"
-%div#varstable!align=center
+<h1>Digital Game Table
+<div align="center">
+    \^{gridWidget}
+<form id="chatform">
+    <textarea id="chattextarea" rows="10" cols="80">
+    <br>
+    <p>
+        <input id="chatmessage" type="text" size="70" maxlength="1000">
+        <input type="submit" value="Send">
+<div id="varstable" align="center">
