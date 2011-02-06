@@ -110,16 +110,19 @@ getTableR = defaultLayout $ do
 
 
 gridWidget :: Widget ()
-gridWidget = [$hamlet|
-  %table.grid
-    $forall tableContent row
-      ^row^
-  |]
+gridWidget = [$hamlet|\
+  <table .grid>
+    $forall row <- tableContent
+      \^{row}
+  \
+|]
   where tableContent = map tableRows [0..gridRows-1]
-        tableRows r  = let row = map (tableSquare r) [0..gridCols-1] in [$hamlet|
-          %tr.grid
-            $forall row square
-              ^square^
-          |]
-        tableSquare r c = let squareId = "sq_" ++ show c ++ "x" ++ show r in [$hamlet| %td.grid#$squareId$ |]
+        tableRows r  = let row = map (tableSquare r) [0..gridCols-1] in [$hamlet|\
+          <tr .grid>
+            $forall square <- row
+              \^{square}
+          \
+|]
+        tableSquare r c = let squareId = "sq_" ++ show c ++ "x" ++ show r in [$hamlet| <td id="#{squareId}" .grid>
+|]
 

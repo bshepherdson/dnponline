@@ -1,10 +1,9 @@
 h1
-	text-align: center
-	font-family:Helvetica,Arial,Helmet,Freesans,sans-serif;
-h2#$h2id$
-	color:#CCCCCC
-	font-family:Helvetica,Arial,Helmet,Freesans,sans-serif;
+    text-align: center
+    font-family: Helvetica,Arial,Helmet,Freesans,sans-serif;
+h2##{h2id}
+    color: #CCCCCC
+    font-family: Helvetica,Arial,Helmet,Freesans,sans-serif;
 p
-	color:#CCCCCC
-	font-family:Helvetica,Arial,Helmet,Freesans,sans-serif;
-
+    color: #CCCCCC
+    font-family: Helvetica,Arial,Helmet,Freesans,sans-serif;

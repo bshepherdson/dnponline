@@ -24,9 +24,10 @@ import qualified Text.Cassius as H
 import qualified Text.Julius as H
 import Language.Haskell.TH.Syntax
 import Database.Persist.Sqlite
-import Yesod (MonadInvertIO, addWidget, addCassius, addJulius)
+import Yesod (addWidget, addCassius, addJulius)
 import Data.Monoid (mempty)
 import System.Directory (doesFileExist)
+import Control.Exception.Peel
 
 -- | The base URL for your application. This will usually be different for
 -- development and production. Yesod automatically constructs URLs for you,
@@ -37,7 +38,7 @@ approot :: String
 -- you would probably want it to be:
 -- > approot = "http://www.yesod.com"
 -- Please note that there is no trailing slash.
-approot = "http://amiesnaturalcreations.com:3000"
+approot = "http://www.diceandpaper.com"
 #else
 approot = "http://localhost:3000"
 #endif
@@ -139,8 +140,8 @@ widgetFile x = do
 -- database actions using a pool, respectively. It is used internally
 -- by the scaffolded application, and therefore you will rarely need to use
 -- them yourself.
-withConnectionPool :: MonadInvertIO m => (ConnectionPool -> m a) -> m a
+withConnectionPool :: MonadPeelIO m => (ConnectionPool -> m a) -> m a
 withConnectionPool = withSqlitePool connStr connectionCount
 
-runConnectionPool :: MonadInvertIO m => SqlPersist m a -> ConnectionPool -> m a
+runConnectionPool :: MonadPeelIO m => SqlPersist m a -> ConnectionPool -> m a
 runConnectionPool = runSqlPool
