@@ -208,8 +208,8 @@ instance YesodAuthEmail DnP where
 
     addUnverified email verkey =
         runDB $ insert $ Email email Nothing $ Just verkey
-    sendVerifyEmail email _ verurl = liftIO $ print verurl -- renderSendMail Mail
-{-        { mailHeaders =
+    sendVerifyEmail email _ verurl = renderSendMail Mail
+        { mailHeaders =
             [ ("From", "noreply")
             , ("To", email)
             , ("Subject", "Verify your email address")
@@ -241,7 +241,6 @@ instance YesodAuthEmail DnP where
 %p Thank you
 |]
             }
--}
     getVerifyKey = runDB . fmap (join . fmap emailVerkey) . get
     setVerifyKey eid key = runDB $ update eid [EmailVerkey $ Just key]
     verifyAccount eid = runDB $ do
