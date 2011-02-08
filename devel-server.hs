@@ -1,4 +1,4 @@
 import Yesod (develServer)
 
 main :: IO ()
-main = develServer 3000 "Controller" "withYesod"
+main = develServer 3000 "Controller" "withDnP"

@@ -1,0 +1,33 @@
+<div .manual>
+    <h1>Manual
+    <p>This is the manual for Dice and Paper. It details all the commands you can use in the chat box, as well as some basic concepts.
+    <h3>Introduction
+    <p>Dice and Paper is a virtual tabletop. That is, if you want to play a tabletop dice-and-paper kind of game -- like Dungeons and Dragons(tm), GURPS(tm) or whatever homebrew you've cooked up -- but you can't get your group all around one table, Dice and Paper can help you out.
+    <p>Dice and Paper is completely web-based, and doesn't require Silverlight, Flash, or any other plugins. It just needs a halfway modern browser with Javascript enabled. It consists of a chat box, a combat grid (sorry, hex fans) and a collection of commands in the chat box for rolling dice, whispering, controlling tokens on the grid, and much else (see below).
+    <p>We strongly recommend that your group also use voice chat software, because it's a lot faster and more fun than typing everything. Some suggestions include Ventrilo, TeamSpeak, Skype and Google Talk.
+    
+    <h4>Tables, Chat and the Grid
+    <p>When your group wants to play a game through Dice and Paper, they all create accounts (or log in to existing accounts) in a few seconds. Once on the main table page with the grid and chat box, the GM runs the command <tt>/host table_name password</tt>. (For example, <tt>/host bradens_table whargarbl</tt> . Then everyone else runs <tt>/join bradens_table whargarbl</tt> to join the table. The host is considered the GM for the purpose of GM-only commands. The GM can be changed with the <tt>/gm</tt> command (see below).
+    <p>Now that everyone's on the same table, they'll see chat messages sent by the others, as well as reports of <tt>/roll</tt>s and other commands. They can add, move and remove tokens from the combat grid (see the Grid Commands, below), roll dice (ditto) and much more (you know where to look). Currently the combat grid is limited to a small selection of coloured tokens (named <tt>red.png</tt>, <tt>blue.png</tt>, <tt>green.png</tt>, <tt>black.png</tt>, <tt>gray.png</tt>, <tt>orange.png</tt>, <tt>pink.png</tt>, <tt>white.png</tt> and <tt>yellow.png</tt>). We plan to greatly expand this selection in the next few weeks, and eventually to allow users to upload token images of their own. We plan in the even more distant future to allow the uploading and displaying of custom backgrounds for the grid, so that instead of black the grid is overlaid on the map of your (GM's) devising.
+    
+    <h4>Variables and Custom Commands
+    <p>The last two concepts worth discussing here are the ability to create variables and custom commands.
+    <p>Variables are numbers (integers, to be precise) which you give a name and are then visible to everyone at the table. For example, if I (<tt>braden</tt>) ran the command <tt>/var HP 23</tt> then everyone at the table would see, below the chat box, a line giving my nickname (<tt>braden</tt>), the variable name (<tt>HP</tt>) and its current value (<tt>23</tt>). You can see everyone's variables, but you can only set your own. Your variables can have the same name as someone else's (we expect there will be a lot of <tt>HP</tt> and <tt>AC</tt> variables).
+    <p>You can also save custom commands. This is intended as a convenience that allows you to save the rolls you make most often, among other things. For example, I might run <tt>/define sword /roll d20+6</tt> which would create a new command (for me only) called <tt>/sword</tt>. When I ran <tt>/sword</tt>, it would be as though I had instead typed <tt>/roll d20+6</tt>, and everyone would see the result of my roll.
+    
+    <h4>A Word About Dice
+    <p>We understand that dice are serious business, so here's the lowdown on dice rolls. When I, for example, <tt>/roll 4d6+3</tt> and get rolls of 4, 2, 6 and 3, the chat message everyone sees will look something like this:
+        <pre>::!:: braden rolled 4d6+3 and got 15 (4 2 6 3).
+        That is, the roller, the dice rolled, the modified total, and the raw rolls. There's no special handling of natural ones or twenties, that's up to your and the rules of your system.
+    
+    <h3>Commands
+    <p>What follows are all the commands available in the chat box. They fall into four categories: chat, dice, grid and custom commands.
+    $forall category <- helpDetails
+        <h4>#{fst (fst category)}
+        <p>#{snd (fst category)}
+        <dl>
+            $forall command <- (snd category)
+                <dt>
+                    <a href="@{SyntaxR (fst command)}">#{fst command}
+                <dd>#{fst (snd command)}
+    

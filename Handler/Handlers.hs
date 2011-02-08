@@ -126,3 +126,22 @@ gridWidget = [$hamlet|\
         tableSquare r c = let squareId = "sq_" ++ show c ++ "x" ++ show r in [$hamlet| <td id="#{squareId}" .grid>
 |]
 
+
+
+
+
+getManualR :: Handler RepHtml
+getManualR = defaultLayout $ do
+  setTitle "Dice and Paper Online - Manual"
+  addHamlet $(hamletFile "manual")
+  addCassius $(cassiusFile "manual")
+
+getSyntaxR :: String -> Handler RepHtml
+getSyntaxR cmd = case M.lookup cmd helpMap of
+                  Nothing -> notFound
+                  Just help -> defaultLayout [$hamlet|\
+                    <h1>Syntax for '#{cmd}'
+                    <p>#{snd help} |]
+
+
+
