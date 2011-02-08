@@ -228,12 +228,12 @@ cmdRoll uid u nick cmd (x:_)  = do
                         rolls <- replicateM a $ liftIO (randomRIO (1,b))
                         let total = sum' rolls + c
                         case cmd of
-                          "roll" -> send uid serverName $ nick ++ " rolled " ++ showDice a b c ++ " and got " ++ show total ++ "."
-                          "proll" -> return $ ResponsePrivate $ "You privately rolled " ++ showDice a b c ++ " and got " ++ show total ++ "."
+                          "roll" -> send uid serverName $ nick ++ " rolled " ++ showDice a b c ++ " and got " ++ show total ++ " (" ++ unwords (map show rolls) ++ ")."
+                          "proll" -> return $ ResponsePrivate $ "You privately rolled " ++ showDice a b c ++ " and got " ++ show total ++ " (" ++ unwords (map show rolls) ++ ")."
                           "gmroll" -> do
                             t <- getTable uid
-                            when (uid /= gm t) $ sendTo uid (gm t) $ MessageChat serverName $ nick ++ " privately rolled " ++ showDice a b c ++ " and got " ++ show total ++ "."
-                            return $ ResponsePrivate $ "You GM-rolled " ++ showDice a b c ++ " and got " ++ show total ++ "."
+                            when (uid /= gm t) $ sendTo uid (gm t) $ MessageChat serverName $ nick ++ " privately rolled " ++ showDice a b c ++ " and got " ++ show total ++ " (" ++ unwords (map show rolls) ++ ")."
+                            return $ ResponsePrivate $ "You GM-rolled " ++ showDice a b c ++ " and got " ++ show total ++ " (" ++ unwords (map show rolls) ++ ")."
   where parseDice = do
           a <- many1 digit
           char 'd'
