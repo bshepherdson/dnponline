@@ -38,7 +38,8 @@ import qualified Data.Text.Lazy
 import qualified Data.Text.Lazy.Encoding
 import Text.Jasmine (minifym)
 
-
+import Network
+import System.IO
 
 import Control.Concurrent.STM
 import Control.Concurrent.STM.TChan
@@ -199,6 +200,33 @@ instance YesodAuth DnP where
                   , authEmail
                   ]
 
+
+sendVerEmail email verurl = withSocketsDo $ do
+  s <- connectTo "localhost" (PortNumber 26)
+  hSetBuffering s LineBuffering
+  mapM_ (hPutStrLn s) [
+    "EHLO diceandpaper.com",
+    "AUTH PLAIN AG5vcmVwbHkrZGljZWFuZHBhcGVyLmNvbQBOMHIzcGx5NzV0aA==",
+    "MAIL FROM:<noreply@diceandpaper.com>",
+    "RCPT TO:<" ++ email ++ ">",
+    "DATA",
+    "From: \"Dice and Paper\" <noreply@diceandpaper.com>",
+    "To: <braden.shepherdson@gmail.com>",
+    "Subject: Welcome to Dice and Paper",
+    "",
+    "Welcome to Dice and Paper!",
+    "",
+    "Please click the link below to activate your account:",
+    verurl,
+    "",
+    "Sincerely,",
+    "The Dice and Paper Team",
+    ".",
+    "QUIT"
+    ]
+  hClose s
+
+
 instance YesodAuthEmail DnP where
     type AuthEmailId DnP = EmailId
 
@@ -207,42 +235,8 @@ instance YesodAuthEmail DnP where
 
     addUnverified email verkey =
         runDB $ insert $ Email email Nothing $ Just verkey
-    sendVerifyEmail email _ verurl = liftIO $ print verurl -- renderSendMail Mail
-{-        { mailHeaders =
-            [ ("From", "noreply")
-            , ("To", email)
-            , ("Subject", "Verify your email address")
-            ]
-        , mailParts = [[textPart, htmlPart]]
-        }
-      where
-        textPart = Part
-            { partType = "text/plain; charset=utf-8"
-            , partEncoding = None
-            , partFilename = Nothing
-            , partContent = Data.Text.Lazy.Encoding.encodeUtf8
-                          $ Data.Text.Lazy.pack $ unlines
-                [ "Please confirm your email address by clicking on the link below."
-                , ""
-                , verurl
-                , ""
-                , "Thank you"
-                ]
-            , partHeaders = []
-            }
-        htmlPart = Part
-            { partType = "text/html; charset=utf-8"
-            , partEncoding = None
-            , partFilename = Nothing
-            , partContent = renderHtml [$hamlet|\
-<p>Please confirm your email address by clicking on the link below.
-<p>
-    <a href="#{verurl}">#{verurl}
-<p>Thank you
-|]
-            , partHeaders = []
-            }
--}
+    sendVerifyEmail email _ verurl = liftIO $ sendVerEmail email verurl
+
     getVerifyKey = runDB . fmap (join . fmap emailVerkey) . get
     setVerifyKey eid key = runDB $ update eid [EmailVerkey $ Just key]
     verifyAccount eid = runDB $ do
