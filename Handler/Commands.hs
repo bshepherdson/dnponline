@@ -68,6 +68,7 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("def",    cmdDefine)
                         , ("undef",  cmdUndef)
                         , ("var",    cmdVar)
+                        , ("delvar", cmdDelVar)
                         ]
 
 
@@ -111,6 +112,7 @@ varHelpSummary = ("Custom Commands and Variables", "These commands define custom
 varHelp  = [ ("define",  ("Defines custom commands as shortcuts.", syntaxDefine))
            , ("undef",   ("Deletes a user-defined command.", syntaxUndef))
            , ("var",     ("Defines a variable that everyone can see.", syntaxVar))
+           , ("delvar",  ("Deletes a variable you've defined previously.", syntaxDelVar))
            ]
 
 helpDetails :: [((String, String), [(String, (String, String))])]
@@ -475,6 +477,23 @@ cmdVar uid u nick cmd [var,value] = do
   t <- getTable uid
   liftIO . atomically $ sendVarUpdate t UpdateAll
   return ResponseSuccess
+
+cmdVar uid u nick cmd _ = return $ ResponsePrivate syntaxVar
+
+
+syntaxDelVar :: String
+syntaxDelVar = "Syntax: /delvar <name> -- Deletes the variable 'var'."
+
+cmdDelVar uid u nick cmd [var] = do
+  runDB $ deleteWhere [VarUserEq uid, VarNameEq var]
+  updateClient uid $ \c -> Just c { vars = M.delete var (vars c) }
+  send uid serverName $ nick ++ " deleted '" ++ var ++ "'."
+  t <- getTable uid
+  liftIO . atomically $ sendVarUpdate t UpdateAll
+  return ResponseSuccess
+
+cmdDelVar uid u nick cmd _ = return $ ResponsePrivate syntaxDelVar
+
 
 
 
