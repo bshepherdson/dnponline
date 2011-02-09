@@ -196,9 +196,7 @@ instance YesodAuth DnP where
     showAuthId _ = showIntegral
     readAuthId _ = readIntegral
 
-    authPlugins = [ authOpenId
-                  , authEmail
-                  ]
+    authPlugins = [ authEmail ]
 
 
 sendVerEmail email verurl = withSocketsDo $ do
