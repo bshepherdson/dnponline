@@ -18,6 +18,7 @@ import Control.Concurrent.STM
 import Control.Concurrent.STM.TVar
 import Control.Concurrent.STM.TChan
 
+import System.Directory
 import System.Random
 import Text.ParserCombinators.Parsec
 
@@ -277,6 +278,11 @@ cmdPlace uid u nick cmd [x,y,image] = do
     (_,Nothing) -> return $ ResponsePrivate "Failed to parse 'y'"
     (Just rx, Just ry) -> do
       when (rx < 0 || ry < 0 || rx >= gridCols || ry >= gridRows) $ sendSuccess -- do nothing silently when placing outside the grid
+      when (".." `isInfixOf` image || "/" `isPrefixOf` image) $ sendPrivate "Illegal image name."
+      exists <- liftIO . doesFileExist $ "static/images/" ++ image
+      case exists of
+        True  -> return ()
+        False -> sendPrivate "Image doesn't exist."
       t <- getTable uid
       case getTokenAt rx ry t of
         Just _  -> sendSuccess -- do nothing, silently
@@ -294,6 +300,11 @@ cmdPlace uid u nick cmd [x,y,image,name] = do
     (_,Nothing) -> return $ ResponsePrivate "Failed to parse 'y'"
     (Just rx, Just ry) -> do
       when (rx < 0 || ry < 0 || rx >= gridCols || ry >= gridRows) $ sendSuccess -- do nothing silently when placing outside the grid
+      when (".." `isInfixOf` image || "/" `isPrefixOf` image) $ sendPrivate "Illegal image name."
+      exists <- liftIO . doesFileExist $ "static/images/" ++ image
+      case exists of
+        True  -> return ()
+        False -> sendPrivate "Image doesn't exist."
       t <- getTable uid
       case getTokenAt rx ry t of
         Just _  -> sendSuccess
