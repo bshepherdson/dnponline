@@ -34,20 +34,20 @@ getRootR = do
 getCheckInR :: Handler RepJson
 getCheckInR = do
   (uid,u) <- requireAuth
-  liftIO $ putStrLn $ "checkIn from " ++ show uid
+  --liftIO $ putStrLn $ "checkIn from " ++ show uid
   table <- getTable uid
   chan <- maybe (invalidArgs ["Invalid User ID"]) (return.channel) $ M.lookup uid (clients table)
   -- blocks until we have something to send
   msg <- liftIO . atomically $ readTChan chan
   case msg of
     MessageChat s c -> do
-      liftIO $ putStrLn $ "Responding to " ++ show uid ++ " with " ++ show (s,c)
+      --liftIO $ putStrLn $ "Responding to " ++ show uid ++ " with " ++ show (s,c)
       jsonToRepJson $ zipJson ["type", "sender", "content"] ["chat",s,c]
     MessageWhisper s c -> do
-      liftIO $ putStrLn $ "Whispering to " ++ show uid ++ " with " ++ show (s,c)
+      --liftIO $ putStrLn $ "Whispering to " ++ show uid ++ " with " ++ show (s,c)
       jsonToRepJson $ zipJson ["type", "sender", "content"] ["whisper",s,c]
     MessageBoard ts -> do
-      liftIO $ putStrLn $ "Sending Tokens to " ++ show uid
+      --liftIO $ putStrLn $ "Sending Tokens to " ++ show uid
       jsonToRepJson $ jsonMap [("type", jsonScalar "board"), 
                                ("tokens", jsonList $ map (\t -> zipJson ["x","y","image","name"] 
                                                                         $ map ($ t) [show.tokenX, show.tokenY, file, tokenName]) 
@@ -55,7 +55,7 @@ getCheckInR = do
                                 )]
     MessageVars vs -> do
       let sorted = sortBy (comparing fst) . sortBy (comparing (fst.snd)) $ vs  -- sorted by nick and then by var name
-      liftIO $ putStrLn $ "Sending vars to " ++ show uid
+      --liftIO $ putStrLn $ "Sending vars to " ++ show uid
       jsonToRepJson $ jsonMap [("type", jsonScalar "vars"),
                                ("vars", jsonList $ map (\v -> zipJson ["nick","var","value"]
                                                                       $ map ($ v) [fst, fst.snd, snd.snd])
@@ -69,7 +69,7 @@ postSayR = do
   mmsg  <- lookupPostParam "message"
   let msg  = fromMaybe "" mmsg -- blank messages won't get sent
       nick = userNick u
-  liftIO $ putStrLn $ nick ++ " (" ++ show uid ++ ") said: " ++ msg
+  --liftIO $ putStrLn $ nick ++ " (" ++ show uid ++ ") said: " ++ msg
   res <- case msg of
            "" -> return $ ResponseSuccess
            _  -> runCommand uid u nick msg
