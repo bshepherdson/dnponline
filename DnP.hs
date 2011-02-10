@@ -126,7 +126,7 @@ mkYesodData "DnP" [$parseRoutes|
 / RootR GET
 
 /check CheckInR GET
-/say   SayR   GET
+/say   SayR   POST
 /table TableR  GET
 
 /manual ManualR GET

@@ -45,11 +45,11 @@ var mapTokens = [];
 var userVars  = [];
 
 function send(msg) {
-    $.getJSON("/say", { message: msg }, function(o) {
+    $.ajax({ type: 'POST', url: "/say", data: { message: msg }, success: function(o) {
         if(o.status == "private") {
             display("*** " + o.message);
         }
-    });
+    } });
 }
 
 
