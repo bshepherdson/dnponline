@@ -63,10 +63,10 @@ getCheckInR = do
                                )]
 
 
-getSayR :: Handler RepJson
-getSayR = do
+postSayR :: Handler RepJson
+postSayR = do
   (uid,u) <- requireAuth
-  mmsg  <- lookupGetParam "message"
+  mmsg  <- lookupPostParam "message"
   let msg  = fromMaybe "" mmsg -- blank messages won't get sent
       nick = userNick u
   liftIO $ putStrLn $ nick ++ " (" ++ show uid ++ ") said: " ++ msg
