@@ -175,3 +175,29 @@ getTokenAt x y t = let tokens = concatMap M.elems $ M.elems (board t)
                          []    -> Nothing
                          (x:_) -> Just x
 
+
+-- removes the given user from his table
+removeClient :: UserId -> Handler ()
+removeClient uid = do
+  dnp <- getYesod
+  liftIO . atomically $ do
+    ut <- readTVar $ userTables dnp
+    let mtid = M.lookup uid ut
+    case mtid of
+      Nothing -> return ()
+      Just tid -> do
+        writeTVar (userTables dnp) $ M.delete uid ut
+        ts <- readTVar $ tables dnp
+        let mt = M.lookup tid ts
+        case mt of 
+          Nothing -> return ()
+          Just t  -> do
+            mt' <- case (gm t == uid, M.size (clients t)) of
+                     (True, 1) -> do 
+                        modifyTVar (tables dnp) (M.delete tid)
+                        return Nothing
+                     _ -> return $ Just t { clients = M.delete uid (clients t) }
+            case mt' of
+              Nothing -> return ()
+              Just t' -> modifyTVar (tables dnp) (M.insert tid t')
+

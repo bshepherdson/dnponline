@@ -38,6 +38,8 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("whisper", cmdWhisper)
                         , ("w",       cmdWhisper)
                         , ("help",    cmdHelp)
+                        , ("quit",    cmdQuit)
+                        , ("kick",    cmdKick)
 
                         -- dice commands
                         , ("roll", cmdRoll)
@@ -83,6 +85,8 @@ chatHelp = [ ("nick",    ("Changes your nickname.", syntaxNick))
            , ("gm",      ("Transfers GM powers to someone else. GM only.", syntaxGM))
            , ("whisper", ("Sends a message privately to another user.", syntaxWhisper))
            , ("help",    ("Displays this list, or details on a command.", syntaxHelp))
+           , ("quit",    ("Leaves the table you're currently in.", syntaxQuit))
+           , ("kick",    ("Kicks a user from the table. GM only.", syntaxKick))
            ]
 
 rollHelpSummary = ("Dice Commands", "These commands roll dice, publicly, privately, or shared with the GM.")
@@ -507,4 +511,25 @@ cmdDelVar uid u nick cmd _ = return $ ResponsePrivate syntaxDelVar
 
 
 
+syntaxQuit :: String
+syntaxQuit = "Syntax: /quit"
+
+cmdQuit uid u nick cmd _ = do
+  send uid serverName $ nick ++ " has quit."
+  removeClient uid
+  return ResponseSuccess
+  
+
+syntaxKick :: String
+syntaxKick = "Syntax: /kick <nickname> -- kicks the player with the given nickname from the table. GM only."
+
+cmdKick uid u nick cmd [name] = do
+  t <- getTable uid
+  when (gm t /= uid) $ sendPrivate "The /kick command is GM-only."
+  (cid, c) <- getClientByNick uid name
+  send uid serverName $ name ++ " was kicked by the GM."
+  removeClient cid
+  return ResponseSuccess
+
+cmdKick uid u nick cmd _ = return $ ResponsePrivate syntaxKick
 
