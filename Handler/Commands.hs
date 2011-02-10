@@ -258,7 +258,7 @@ cmdRoll uid u nick cmd [x]  = do
           let c = case (mc1,mc2) of
                     (Nothing,Nothing) -> 0
                     (Just x, Nothing) -> read x
-                    (Nothing,Just y)  -> read y
+                    (Nothing,Just y)  -> - read y
           return ((read a, read b, c) :: (Int,Int,Int))
         showDice a b c = show a ++ "d" ++ show b ++ (if c < 0 then show c else "+" ++ show c)
 
