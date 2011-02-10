@@ -72,7 +72,7 @@ postSayR = do
   --liftIO $ putStrLn $ nick ++ " (" ++ show uid ++ ") said: " ++ msg
   res <- case msg of
            "" -> return $ ResponseSuccess
-           _  -> runCommand uid u nick msg
+           _  -> runCommand uid u nick msg []
 
   case res of
     ResponseSuccess -> jsonToRepJson $ zipJson ["status"] ["success"]
@@ -80,11 +80,12 @@ postSayR = do
 
 
 -- handles the main logic on an incoming chat message. does the actual feeding of clients with data
-runCommand :: UserId -> User -> String -> String -> Handler CommandResponse
-runCommand _ _ _ []    = return ResponseSuccess -- do nothing on empty messages
-runCommand _ _ _ ['/'] = return ResponseSuccess -- do nothing on just a slash
-runCommand uid u nick ('/':msg) = do
+runCommand :: UserId -> User -> String -> String -> [String] -> Handler CommandResponse
+runCommand _ _ _ []    _ = return ResponseSuccess -- do nothing on empty messages
+runCommand _ _ _ ['/'] _ = return ResponseSuccess -- do nothing on just a slash
+runCommand uid u nick ('/':msg) prevcmds = do
   let (cmd:args) = words msg -- guaranteed to be at least one by the ['/'] case above
+  when (not . null . filter (==cmd) $ prevcmds) $ sendPrivate "Loop detected. Illegal command."
   let mf = M.lookup cmd commandMap
   case mf of
     Just f  -> f uid u nick cmd args
@@ -93,10 +94,10 @@ runCommand uid u nick ('/':msg) = do
       cmds <- runDB $ selectList [CommandUserEq uid, CommandNameEq cmd] [] 0 0
       case cmds of
         []  -> return $ ResponsePrivate $ "Unknown command: '" ++ cmd ++ "'"
-        [(_,Command _ _ usrcmd)] -> runCommand uid u nick usrcmd
+        [(_,Command _ _ usrcmd)] -> runCommand uid u nick usrcmd (cmd:prevcmds)
         _   -> return $ ResponsePrivate $ "ERROR: Multiple possible commands returned. Can't happen."
 
-runCommand uid u nick msg = send uid nick msg
+runCommand uid u nick msg _ = send uid nick msg
 
 
 
