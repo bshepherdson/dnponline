@@ -1,6 +1,9 @@
 <h1>Digital Game Table
 <div align="center">
-    \^{gridWidget}
+    <p>
+        <a id="gridhideshow" href="javascript:toggleGridVisibility()">Show grid
+    <div .hidden id="gridpane">
+        \^{gridWidget}
 <form id="chatform">
     <textarea id="chattextarea" rows="10" cols="80">
     <br>

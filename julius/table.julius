@@ -177,4 +177,18 @@ function clickHandler(e) {
 }
 
 
+var gridVisible = false;
+
+function toggleGridVisibility() {
+    if(gridVisible) {
+        gridVisible = false;
+        $("#gridpane").addClass("hidden");
+        $("#gridhideshow").html("Show grid");
+    } else {
+        gridVisible = true;
+        $("#gridpane").removeClass("hidden");
+        $("#gridhideshow").html("Hide grid");
+    }
+}
+
 

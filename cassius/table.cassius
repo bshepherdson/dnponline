@@ -49,3 +49,5 @@ td.vars
 td.gridhighlight
     border-color: #FF0000
     background-color: #CC0000
+.hidden
+    display: none
