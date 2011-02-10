@@ -193,10 +193,12 @@ removeClient uid = do
           Nothing -> return ()
           Just t  -> do
             mt' <- case (gm t == uid, M.size (clients t)) of
-                     (True, 1) -> do 
+                     (_, 1) -> do 
                         modifyTVar (tables dnp) (M.delete tid)
                         return Nothing
-                     _ -> return $ Just t { clients = M.delete uid (clients t) }
+                     (True,_) -> let cs = M.delete uid (clients t)
+                                 in  return $ Just t { gm = head (M.keys cs), clients = cs }
+                     _        -> return $ Just t { clients = M.delete uid (clients t) }
             case mt' of
               Nothing -> return ()
               Just t' -> modifyTVar (tables dnp) (M.insert tid t')
