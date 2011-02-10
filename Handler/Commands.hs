@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell, OverloadedStrings, NoMonomorphismRestriction #-}
+{-# OPTIONS_GHC -fno-warn-overlapping-patterns #-}
 module Handler.Commands (
     commandMap
   , CommandResponse (..)
@@ -214,19 +215,26 @@ syntaxRoll :: String
 syntaxRoll = "Syntax: /roll AdB+C\nExamples: /roll 2d6-2   /roll d20   /roll 1d8+3\n\nSyntax: /proll AdB+C -- Roll privately to yourself. Alias: pr.\nSyntax: /gmroll AdB+C -- Roll to yourself and the GM. Alias: gmr."
 
 cmdRoll :: Cmd
-cmdRoll uid u nick "d3"   _ = cmdRoll uid u nick "roll" ["1d3"]
-cmdRoll uid u nick "d4"   _ = cmdRoll uid u nick "roll" ["1d4"]
-cmdRoll uid u nick "d6"   _ = cmdRoll uid u nick "roll" ["1d6"]
-cmdRoll uid u nick "d8"   _ = cmdRoll uid u nick "roll" ["1d8"]
-cmdRoll uid u nick "d10"  _ = cmdRoll uid u nick "roll" ["1d10"]
-cmdRoll uid u nick "d12"  _ = cmdRoll uid u nick "roll" ["1d12"]
-cmdRoll uid u nick "d20"  _ = cmdRoll uid u nick "roll" ["1d20"]
-cmdRoll uid u nick "d100" _ = cmdRoll uid u nick "roll" ["1d100"]
-cmdRoll uid u nick "d%"   _ = cmdRoll uid u nick "roll" ["1d100"]
+cmdRoll uid u nick "d3"   r = cmdRoll uid u nick "roll" (["1d3"]++r)
+cmdRoll uid u nick "d4"   r = cmdRoll uid u nick "roll" (["1d4"]++r)
+cmdRoll uid u nick "d6"   r = cmdRoll uid u nick "roll" (["1d6"]++r)
+cmdRoll uid u nick "d8"   r = cmdRoll uid u nick "roll" (["1d8"]++r)
+cmdRoll uid u nick "d10"  r = cmdRoll uid u nick "roll" (["1d10"]++r)
+cmdRoll uid u nick "d12"  r = cmdRoll uid u nick "roll" (["1d12"]++r)
+cmdRoll uid u nick "d20"  r = cmdRoll uid u nick "roll" (["1d20"]++r)
+cmdRoll uid u nick "d100" r = cmdRoll uid u nick "roll" (["1d100"]++r)
+cmdRoll uid u nick "d%"   r = cmdRoll uid u nick "roll" (["1d100"]++r)
+cmdRoll uid u nick "r"    r = cmdRoll uid u nick "roll" r
 cmdRoll uid u nick "pr"   r = cmdRoll uid u nick "proll" r
 cmdRoll uid u nick "gmr"  r = cmdRoll uid u nick "gmroll" r
 cmdRoll uid u nick _ []     = return $ ResponsePrivate syntaxRoll
-cmdRoll uid u nick cmd (x:_)  = do
+cmdRoll uid u nick cmd [x,y] = case y of
+                                 ('+':_) -> cmdRoll uid u nick cmd [x++y]
+                                 ('-':_) -> case maybeRead y :: Maybe Integer of
+                                              Nothing -> return $ ResponsePrivate "Couldn't make sense of the numbers."
+                                              Just y' -> cmdRoll uid u nick cmd [x++y]
+                                 _ -> cmdRoll uid u nick cmd [x ++ "+" ++ y] -- insert a +
+cmdRoll uid u nick cmd [x]  = do
     case parse parseDice "" (case x of ('d':_) -> '1':x; _ -> x) of
       Left _ -> return $ ResponsePrivate syntaxRoll
       Right (a,b,c) | a <= 0 -> return $ ResponsePrivate "Number of dice cannot be less than 1."
@@ -254,6 +262,7 @@ cmdRoll uid u nick cmd (x:_)  = do
           return ((read a, read b, c) :: (Int,Int,Int))
         showDice a b c = show a ++ "d" ++ show b ++ (if c < 0 then show c else "+" ++ show c)
 
+cmdRoll uid u nick cmd _ = return $ ResponsePrivate syntaxRoll
 
 
 syntaxPlace :: String
