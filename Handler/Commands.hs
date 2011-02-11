@@ -195,7 +195,7 @@ cmdJoin uid u nick cmd [name,pass] = do
                 writeTVar (tables dnp) ts'
                 rawSend t serverName $ nick ++ " has joined the table." -- deliberately t, sends to everyone else, not the new client
                 sendBoardUpdate t' (UpdateUser uid)
-                sendVarUpdate   t' (UpdateUser uid)
+                sendVarUpdate   t' UpdateAll
                 return $ ResponsePrivate $ "Successfully joined table " ++ name
 cmdJoin uid u nick cmd _ = return $ ResponsePrivate $ syntaxJoin
 
@@ -494,13 +494,16 @@ syntaxVar :: String
 syntaxVar = "Syntax: /var <name> <value> -- Sets the variable 'name' to have the value 'value'. Everyone will see the updated value."
 
 
-cmdVar uid u nick cmd (var:val) = do
+cmdVar uid u nick cmd (invar:val) = do
+  (ownerId, ownerNick, var) <- varBreakdown uid nick invar
   let value = unwords val
   runDB $ do
-    deleteWhere [VarUserEq uid, VarNameEq var]
-    insert $ Var uid var value
-  updateClient uid $ \c -> Just c { vars = M.insert var value (vars c) }
-  send uid serverName $ nick ++ " set '" ++ var ++ "' to '" ++ value ++ "'."
+    deleteWhere [VarUserEq ownerId, VarNameEq var]
+    insert $ Var ownerId var value
+  updateClient ownerId $ \c -> Just c { vars = M.insert var value (vars c) }
+  case ownerId == uid of
+    False -> send uid serverName $ "GM set " ++ ownerNick ++ "'s variable '" ++ var ++ "' to '" ++ value ++ "'."
+    True  -> send uid serverName $ nick ++ " set '" ++ var ++ "' to '" ++ value ++ "'."
   t <- getTable uid
   liftIO . atomically $ sendVarUpdate t UpdateAll
   return ResponseSuccess
@@ -511,23 +514,37 @@ cmdVar uid u nick cmd _ = return $ ResponsePrivate syntaxVar
 syntaxDelVar :: String
 syntaxDelVar = "Syntax: /delvar <name> -- Deletes the variable 'var'."
 
-cmdDelVar uid u nick cmd [var] = do
-  mc <- getClientById uid
+cmdDelVar uid u nick cmd [invar] = do
+  (ownerId, ownerNick, var) <- varBreakdown uid nick invar
+  mc <- getClientById ownerId
   case mc of
     Nothing -> sendPrivate "Client doesn't exist"
     Just c  -> do
       case M.lookup var (vars c) of
         Nothing -> sendPrivate $ "No var '" ++ var ++ "' found."
         Just _  -> do
-          runDB $ deleteWhere [VarUserEq uid, VarNameEq var]
-          updateClient uid $ \c -> Just c { vars = M.delete var (vars c) }
-          send uid serverName $ nick ++ " deleted '" ++ var ++ "'."
+          runDB $ deleteWhere [VarUserEq ownerId, VarNameEq var]
+          updateClient ownerId $ \c -> Just c { vars = M.delete var (vars c) }
+          case ownerId == uid of
+            True  -> send uid serverName $ ownerNick ++ " deleted '" ++ var ++ "'."
+            False -> send uid serverName $ "GM deleted " ++ ownerNick ++ "'s variable '" ++ var ++ "'."
           t <- getTable uid
           liftIO . atomically $ sendVarUpdate t UpdateAll
           return ResponseSuccess
 
 cmdDelVar uid u nick cmd _ = return $ ResponsePrivate syntaxDelVar
 
+
+varBreakdown :: UserId -> String -> String -> Handler (UserId, String, String)
+varBreakdown uid nick invar = do
+  t <- getTable uid
+  case ":" `isInfixOf` invar of
+    False -> return (uid, nick, invar)
+    True  -> do
+      when (gm t /= uid) $ sendPrivate "Only the GM can modify others' variables."
+      let (owner,_:var) = span (/=':') invar
+      (cid,_) <- getClientByNick uid owner
+      return (cid,owner,var)
 
 
 syntaxQuit :: String
