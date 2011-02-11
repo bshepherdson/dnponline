@@ -7,9 +7,9 @@ $(document).ready(function () {
         historyIndex = -1;
         var oldTemp = $("#chatmessage").attr("value");
         var newTemp;
-        for(var i = 0; i < history.length && i < 10; i++) {
-            newTemp = history[i];
-            history[i] = oldTemp;
+        for(var i = 0; i < chatHistory.length && i < 10; i++) {
+            newTemp = chatHistory[i];
+            chatHistory[i] = oldTemp;
             oldTemp = newTemp;
         }
 
@@ -124,7 +124,7 @@ function updateVars(newVars) {
 }
 
 
-var history = [];
+var chatHistory = [];
 var historyIndex = -1;
 var currentCommand = null;
 var chatMessage;
@@ -133,12 +133,12 @@ function keyHandler(e) {
     if(e.keyCode == 38) { // up
         e.preventDefault();
 
-        if(historyIndex < history.length-1) {
+        if(historyIndex < chatHistory.length-1) {
             if(historyIndex < 0) {
                 currentCommand = chatMessage.attr("value"); // store the current command
             }
             historyIndex++;
-            chatMessage.attr("value", history[historyIndex]);
+            chatMessage.attr("value", chatHistory[historyIndex]);
             chatMessage[0].setSelectionRange(10000,10000); // put cursor at the right edge
         }
     } else if(e.keyCode == 40) { //down
@@ -150,7 +150,7 @@ function keyHandler(e) {
             value = currentCommand;
         } else if(historyIndex > 0) {
             historyIndex--;
-            value = history[historyIndex];
+            value = chatHistory[historyIndex];
         }
         chatMessage.attr("value", value);
         chatMessage[0].setSelectionRange(10000,10000); // put cursor at the right edge.

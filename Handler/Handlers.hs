@@ -105,6 +105,7 @@ getTableR :: Handler RepHtml
 getTableR = defaultLayout $ do
   setTitle "Dice and Paper Online - Table"
   addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
+  addScript $ StaticR $ StaticRoute ["table.js"] []
   $(widgetFile "table")
 
 
