@@ -179,7 +179,7 @@ cmdJoin uid u nick cmd [name,pass] = do
     userTable <- readTVar $ userTables dnp
     ts <- readTVar $ tables dnp
     case M.lookup uid userTable of
-      Just t  -> return $ ResponsePrivate $ "You are already in the table " ++ t ++ ". /part first."
+      Just t  -> return $ ResponsePrivate $ "You are already in the table " ++ t ++ ". /quit first."
       Nothing -> do
         case M.lookup name ts of
           Nothing -> return $ ResponsePrivate $ "Table " ++ name ++ " does not exist."

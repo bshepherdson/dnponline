@@ -1,4 +1,4 @@
-<h1>Digital Game Table
+<h1>Gaming Table
 <div align="center">
     <p>
         <a id="gridhideshow" href="javascript:toggleGridVisibility()">Show grid
@@ -10,4 +10,12 @@
     <p>
         <input id="chatmessage" type="text" size="70" maxlength="1000">
         <input type="submit" value="Send">
+    <p>
+        <input type="button" id="d4button"  value="d4">
+        <input type="button" id="d6button"  value="d6">
+        <input type="button" id="d8button"  value="d8">
+        <input type="button" id="d10button" value="d10">
+        <input type="button" id="d12button" value="d12">
+        <input type="button" id="d20button" value="d20">
+        <input type="button" id="d100button"  value="d%">
 <div id="varstable" align="center">

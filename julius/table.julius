@@ -35,6 +35,14 @@ $(document).ready(function () {
     // attach the click() event to all the td cells
     $("td.grid").click(clickHandler);
 
+    $("#d4button").click(rollDice(4));
+    $("#d6button").click(rollDice(6));
+    $("#d8button").click(rollDice(8));
+    $("#d10button").click(rollDice(10));
+    $("#d12button").click(rollDice(12));
+    $("#d20button").click(rollDice(20));
+    $("#d100button").click(rollDice('%'));
+
     checkIn();
 });
 
@@ -190,5 +198,14 @@ function toggleGridVisibility() {
         $("#gridhideshow").html("Hide grid");
     }
 }
+
+
+
+function rollDice(n) {
+    return function (e) {
+        send("/d"+n);
+    };
+}
+
 
 
