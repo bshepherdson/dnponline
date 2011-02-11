@@ -34,20 +34,20 @@ getRootR = do
 getCheckInR :: Handler RepJson
 getCheckInR = do
   (uid,u) <- requireAuth
-  liftIO $ putStrLn $ "checkIn from " ++ show uid
+  --liftIO $ putStrLn $ "checkIn from " ++ show uid
   table <- getTable uid
   chan <- maybe (invalidArgs ["Invalid User ID"]) (return.channel) $ M.lookup uid (clients table)
   -- blocks until we have something to send
   msg <- liftIO . atomically $ readTChan chan
   case msg of
     MessageChat s c -> do
-      liftIO $ putStrLn $ "Responding to " ++ show uid ++ " with " ++ show (s,c)
+      --liftIO $ putStrLn $ "Responding to " ++ show uid ++ " with " ++ show (s,c)
       jsonToRepJson $ zipJson ["type", "sender", "content"] ["chat",s,c]
     MessageWhisper s c -> do
-      liftIO $ putStrLn $ "Whispering to " ++ show uid ++ " with " ++ show (s,c)
+      --liftIO $ putStrLn $ "Whispering to " ++ show uid ++ " with " ++ show (s,c)
       jsonToRepJson $ zipJson ["type", "sender", "content"] ["whisper",s,c]
     MessageBoard ts -> do
-      liftIO $ putStrLn $ "Sending Tokens to " ++ show uid
+      --liftIO $ putStrLn $ "Sending Tokens to " ++ show uid
       jsonToRepJson $ jsonMap [("type", jsonScalar "board"), 
                                ("tokens", jsonList $ map (\t -> zipJson ["x","y","image","name"] 
                                                                         $ map ($ t) [show.tokenX, show.tokenY, file, tokenName]) 
@@ -55,7 +55,7 @@ getCheckInR = do
                                 )]
     MessageVars vs -> do
       let sorted = sortBy (comparing fst) . sortBy (comparing (fst.snd)) $ vs  -- sorted by nick and then by var name
-      liftIO $ putStrLn $ "Sending vars to " ++ show uid
+      --liftIO $ putStrLn $ "Sending vars to " ++ show uid
       jsonToRepJson $ jsonMap [("type", jsonScalar "vars"),
                                ("vars", jsonList $ map (\v -> zipJson ["nick","var","value"]
                                                                       $ map ($ v) [fst, fst.snd, snd.snd])
@@ -69,10 +69,10 @@ postSayR = do
   mmsg  <- lookupPostParam "message"
   let msg  = fromMaybe "" mmsg -- blank messages won't get sent
       nick = userNick u
-  liftIO $ putStrLn $ nick ++ " (" ++ show uid ++ ") said: " ++ msg
+  --liftIO $ putStrLn $ nick ++ " (" ++ show uid ++ ") said: " ++ msg
   res <- case msg of
            "" -> return $ ResponseSuccess
-           _  -> runCommand uid u nick msg
+           _  -> runCommand uid u nick msg []
 
   case res of
     ResponseSuccess -> jsonToRepJson $ zipJson ["status"] ["success"]
@@ -80,11 +80,12 @@ postSayR = do
 
 
 -- handles the main logic on an incoming chat message. does the actual feeding of clients with data
-runCommand :: UserId -> User -> String -> String -> Handler CommandResponse
-runCommand _ _ _ []    = return ResponseSuccess -- do nothing on empty messages
-runCommand _ _ _ ['/'] = return ResponseSuccess -- do nothing on just a slash
-runCommand uid u nick ('/':msg) = do
+runCommand :: UserId -> User -> String -> String -> [String] -> Handler CommandResponse
+runCommand _ _ _ []    _ = return ResponseSuccess -- do nothing on empty messages
+runCommand _ _ _ ['/'] _ = return ResponseSuccess -- do nothing on just a slash
+runCommand uid u nick ('/':msg) prevcmds = do
   let (cmd:args) = words msg -- guaranteed to be at least one by the ['/'] case above
+  when (not . null . filter (==cmd) $ prevcmds) $ sendPrivate "Loop detected. Illegal command."
   let mf = M.lookup cmd commandMap
   case mf of
     Just f  -> f uid u nick cmd args
@@ -93,10 +94,10 @@ runCommand uid u nick ('/':msg) = do
       cmds <- runDB $ selectList [CommandUserEq uid, CommandNameEq cmd] [] 0 0
       case cmds of
         []  -> return $ ResponsePrivate $ "Unknown command: '" ++ cmd ++ "'"
-        [(_,Command _ _ usrcmd)] -> runCommand uid u nick usrcmd
+        [(_,Command _ _ usrcmd)] -> runCommand uid u nick usrcmd (cmd:prevcmds)
         _   -> return $ ResponsePrivate $ "ERROR: Multiple possible commands returned. Can't happen."
 
-runCommand uid u nick msg = send uid nick msg
+runCommand uid u nick msg _ = send uid nick msg
 
 
 

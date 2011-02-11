@@ -35,6 +35,16 @@ $(document).ready(function () {
     // attach the click() event to all the td cells
     $("td.grid").click(clickHandler);
 
+    $("#d4button").click(rollDice(4));
+    $("#d6button").click(rollDice(6));
+    $("#d8button").click(rollDice(8));
+    $("#d10button").click(rollDice(10));
+    $("#d12button").click(rollDice(12));
+    $("#d20button").click(rollDice(20));
+    $("#d100button").click(rollDice('%'));
+
+    $("#chatscrolllock").click(scrollLock);
+
     checkIn();
 });
 
@@ -76,8 +86,14 @@ function checkIn () {
 
 function display (msg) {
     var ta = $("#chattextarea");
-    ta.html(ta.html() + msg + "\n");
-    ta.scrollTop(1000000);
+    ta.html(ta.html() + msg + "<br/>\n");
+    //console.log(ta.scrollTop + "," + ta.height + "," + ta.scrollHeight);
+    if(!scrollLocked) {
+        ta.scrollTop(100000000);
+    } else {
+        ta.addClass('borderhighlight');
+        ta.removeClass('bordernormal');
+    }
 }
 
 
@@ -176,5 +192,44 @@ function clickHandler(e) {
 
 }
 
+
+var gridVisible = false;
+
+function toggleGridVisibility() {
+    if(gridVisible) {
+        gridVisible = false;
+        $("#gridpane").addClass("hidden");
+        $("#gridhideshow").html("Show grid");
+    } else {
+        gridVisible = true;
+        $("#gridpane").removeClass("hidden");
+        $("#gridhideshow").html("Hide grid");
+    }
+}
+
+
+
+function rollDice(n) {
+    return function (e) {
+        send("/d"+n);
+    };
+}
+
+
+var scrollLocked = false;
+
+function scrollLock() {
+    if(scrollLocked) {
+        scrollLocked = false;
+        var ta = $("#chattextarea");
+        ta.scrollTop(100000000);
+        ta.addClass('bordernormal');
+        ta.removeClass('borderhighlight');
+        $("#chatscrolllock").attr('src', "/static/images/blue.png");
+    } else {
+        scrollLocked = true;
+        $("#chatscrolllock").attr('src', "/static/images/red.png");
+    }
+}
 
 

@@ -1,4 +1,5 @@
 {-# LANGUAGE TemplateHaskell, OverloadedStrings, NoMonomorphismRestriction #-}
+{-# OPTIONS_GHC -fno-warn-overlapping-patterns #-}
 module Handler.Commands (
     commandMap
   , CommandResponse (..)
@@ -18,6 +19,7 @@ import Control.Concurrent.STM
 import Control.Concurrent.STM.TVar
 import Control.Concurrent.STM.TChan
 
+import System.Directory
 import System.Random
 import Text.ParserCombinators.Parsec
 
@@ -37,6 +39,8 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("whisper", cmdWhisper)
                         , ("w",       cmdWhisper)
                         , ("help",    cmdHelp)
+                        , ("quit",    cmdQuit)
+                        , ("kick",    cmdKick)
 
                         -- dice commands
                         , ("roll", cmdRoll)
@@ -54,6 +58,7 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("d20",  cmdRoll)
                         , ("d100", cmdRoll)
                         , ("d%",   cmdRoll)
+                        , ("thac0", cmdThac0)
 
                         -- board commands
                         , ("place",  cmdPlace)
@@ -82,6 +87,8 @@ chatHelp = [ ("nick",    ("Changes your nickname.", syntaxNick))
            , ("gm",      ("Transfers GM powers to someone else. GM only.", syntaxGM))
            , ("whisper", ("Sends a message privately to another user.", syntaxWhisper))
            , ("help",    ("Displays this list, or details on a command.", syntaxHelp))
+           , ("quit",    ("Leaves the table you're currently in.", syntaxQuit))
+           , ("kick",    ("Kicks a user from the table. GM only.", syntaxKick))
            ]
 
 rollHelpSummary = ("Dice Commands", "These commands roll dice, publicly, privately, or shared with the GM.")
@@ -97,6 +104,7 @@ rollHelp = [ ("roll",    ("Rolls dice and shows the result to everyone.", syntax
            , ("d20",     ("Shortcut to roll 1d20.", "Syntax: /d20"))
            , ("d100",    ("Shortcut to roll 1d100.", "Syntax: /d100"))
            , ("d%",      ("Shortcut to roll d%.", "Syntax: /d%"))
+           , ("thac0",   ("Make and attack roll against your THAC0 (used in AD&D 2nd ed.)", syntaxThac0))
            ]
 
 gridHelpSummary = ("Grid Commands", "These commands manipulate the combat grid: placing and moving tokens.")
@@ -171,7 +179,7 @@ cmdJoin uid u nick cmd [name,pass] = do
     userTable <- readTVar $ userTables dnp
     ts <- readTVar $ tables dnp
     case M.lookup uid userTable of
-      Just t  -> return $ ResponsePrivate $ "You are already in the table " ++ t ++ ". /part first."
+      Just t  -> return $ ResponsePrivate $ "You are already in the table " ++ t ++ ". /quit first."
       Nothing -> do
         case M.lookup name ts of
           Nothing -> return $ ResponsePrivate $ "Table " ++ name ++ " does not exist."
@@ -187,7 +195,7 @@ cmdJoin uid u nick cmd [name,pass] = do
                 writeTVar (tables dnp) ts'
                 rawSend t serverName $ nick ++ " has joined the table." -- deliberately t, sends to everyone else, not the new client
                 sendBoardUpdate t' (UpdateUser uid)
-                sendVarUpdate   t' (UpdateUser uid)
+                sendVarUpdate   t' UpdateAll
                 return $ ResponsePrivate $ "Successfully joined table " ++ name
 cmdJoin uid u nick cmd _ = return $ ResponsePrivate $ syntaxJoin
 
@@ -209,19 +217,26 @@ syntaxRoll :: String
 syntaxRoll = "Syntax: /roll AdB+C\nExamples: /roll 2d6-2   /roll d20   /roll 1d8+3\n\nSyntax: /proll AdB+C -- Roll privately to yourself. Alias: pr.\nSyntax: /gmroll AdB+C -- Roll to yourself and the GM. Alias: gmr."
 
 cmdRoll :: Cmd
-cmdRoll uid u nick "d3"   _ = cmdRoll uid u nick "roll" ["1d3"]
-cmdRoll uid u nick "d4"   _ = cmdRoll uid u nick "roll" ["1d4"]
-cmdRoll uid u nick "d6"   _ = cmdRoll uid u nick "roll" ["1d6"]
-cmdRoll uid u nick "d8"   _ = cmdRoll uid u nick "roll" ["1d8"]
-cmdRoll uid u nick "d10"  _ = cmdRoll uid u nick "roll" ["1d10"]
-cmdRoll uid u nick "d12"  _ = cmdRoll uid u nick "roll" ["1d12"]
-cmdRoll uid u nick "d20"  _ = cmdRoll uid u nick "roll" ["1d20"]
-cmdRoll uid u nick "d100" _ = cmdRoll uid u nick "roll" ["1d100"]
-cmdRoll uid u nick "d%"   _ = cmdRoll uid u nick "roll" ["1d100"]
+cmdRoll uid u nick "d3"   r = cmdRoll uid u nick "roll" (["1d3"]++r)
+cmdRoll uid u nick "d4"   r = cmdRoll uid u nick "roll" (["1d4"]++r)
+cmdRoll uid u nick "d6"   r = cmdRoll uid u nick "roll" (["1d6"]++r)
+cmdRoll uid u nick "d8"   r = cmdRoll uid u nick "roll" (["1d8"]++r)
+cmdRoll uid u nick "d10"  r = cmdRoll uid u nick "roll" (["1d10"]++r)
+cmdRoll uid u nick "d12"  r = cmdRoll uid u nick "roll" (["1d12"]++r)
+cmdRoll uid u nick "d20"  r = cmdRoll uid u nick "roll" (["1d20"]++r)
+cmdRoll uid u nick "d100" r = cmdRoll uid u nick "roll" (["1d100"]++r)
+cmdRoll uid u nick "d%"   r = cmdRoll uid u nick "roll" (["1d100"]++r)
+cmdRoll uid u nick "r"    r = cmdRoll uid u nick "roll" r
 cmdRoll uid u nick "pr"   r = cmdRoll uid u nick "proll" r
 cmdRoll uid u nick "gmr"  r = cmdRoll uid u nick "gmroll" r
 cmdRoll uid u nick _ []     = return $ ResponsePrivate syntaxRoll
-cmdRoll uid u nick cmd (x:_)  = do
+cmdRoll uid u nick cmd [x,y] = case y of
+                                 ('+':_) -> cmdRoll uid u nick cmd [x++y]
+                                 ('-':_) -> case maybeRead y :: Maybe Integer of
+                                              Nothing -> return $ ResponsePrivate "Couldn't make sense of the numbers."
+                                              Just y' -> cmdRoll uid u nick cmd [x++y]
+                                 _ -> cmdRoll uid u nick cmd [x ++ "+" ++ y] -- insert a +
+cmdRoll uid u nick cmd [x]  = do
     case parse parseDice "" (case x of ('d':_) -> '1':x; _ -> x) of
       Left _ -> return $ ResponsePrivate syntaxRoll
       Right (a,b,c) | a <= 0 -> return $ ResponsePrivate "Number of dice cannot be less than 1."
@@ -245,10 +260,11 @@ cmdRoll uid u nick cmd (x:_)  = do
           let c = case (mc1,mc2) of
                     (Nothing,Nothing) -> 0
                     (Just x, Nothing) -> read x
-                    (Nothing,Just y)  -> read y
+                    (Nothing,Just y)  -> - read y
           return ((read a, read b, c) :: (Int,Int,Int))
         showDice a b c = show a ++ "d" ++ show b ++ (if c < 0 then show c else "+" ++ show c)
 
+cmdRoll uid u nick cmd _ = return $ ResponsePrivate syntaxRoll
 
 
 syntaxPlace :: String
@@ -277,6 +293,11 @@ cmdPlace uid u nick cmd [x,y,image] = do
     (_,Nothing) -> return $ ResponsePrivate "Failed to parse 'y'"
     (Just rx, Just ry) -> do
       when (rx < 0 || ry < 0 || rx >= gridCols || ry >= gridRows) $ sendSuccess -- do nothing silently when placing outside the grid
+      when (".." `isInfixOf` image || "/" `isPrefixOf` image) $ sendPrivate "Illegal image name."
+      exists <- liftIO . doesFileExist $ "static/images/" ++ image
+      case exists of
+        True  -> return ()
+        False -> sendPrivate "Image doesn't exist."
       t <- getTable uid
       case getTokenAt rx ry t of
         Just _  -> sendSuccess -- do nothing, silently
@@ -294,6 +315,11 @@ cmdPlace uid u nick cmd [x,y,image,name] = do
     (_,Nothing) -> return $ ResponsePrivate "Failed to parse 'y'"
     (Just rx, Just ry) -> do
       when (rx < 0 || ry < 0 || rx >= gridCols || ry >= gridRows) $ sendSuccess -- do nothing silently when placing outside the grid
+      when (".." `isInfixOf` image || "/" `isPrefixOf` image) $ sendPrivate "Illegal image name."
+      exists <- liftIO . doesFileExist $ "static/images/" ++ image
+      case exists of
+        True  -> return ()
+        False -> sendPrivate "Image doesn't exist."
       t <- getTable uid
       case getTokenAt rx ry t of
         Just _  -> sendSuccess
@@ -468,12 +494,16 @@ syntaxVar :: String
 syntaxVar = "Syntax: /var <name> <value> -- Sets the variable 'name' to have the value 'value'. Everyone will see the updated value."
 
 
-cmdVar uid u nick cmd [var,value] = do
+cmdVar uid u nick cmd (invar:val) = do
+  (ownerId, ownerNick, var) <- varBreakdown uid nick invar
+  let value = unwords val
   runDB $ do
-    deleteWhere [VarUserEq uid, VarNameEq var]
-    insert $ Var uid var value
-  updateClient uid $ \c -> Just c { vars = M.insert var value (vars c) }
-  send uid serverName $ nick ++ " set '" ++ var ++ "' to '" ++ value ++ "'."
+    deleteWhere [VarUserEq ownerId, VarNameEq var]
+    insert $ Var ownerId var value
+  updateClient ownerId $ \c -> Just c { vars = M.insert var value (vars c) }
+  case ownerId == uid of
+    False -> send uid serverName $ "GM set " ++ ownerNick ++ "'s variable '" ++ var ++ "' to '" ++ value ++ "'."
+    True  -> send uid serverName $ nick ++ " set '" ++ var ++ "' to '" ++ value ++ "'."
   t <- getTable uid
   liftIO . atomically $ sendVarUpdate t UpdateAll
   return ResponseSuccess
@@ -484,16 +514,73 @@ cmdVar uid u nick cmd _ = return $ ResponsePrivate syntaxVar
 syntaxDelVar :: String
 syntaxDelVar = "Syntax: /delvar <name> -- Deletes the variable 'var'."
 
-cmdDelVar uid u nick cmd [var] = do
-  runDB $ deleteWhere [VarUserEq uid, VarNameEq var]
-  updateClient uid $ \c -> Just c { vars = M.delete var (vars c) }
-  send uid serverName $ nick ++ " deleted '" ++ var ++ "'."
-  t <- getTable uid
-  liftIO . atomically $ sendVarUpdate t UpdateAll
-  return ResponseSuccess
+cmdDelVar uid u nick cmd [invar] = do
+  (ownerId, ownerNick, var) <- varBreakdown uid nick invar
+  mc <- getClientById ownerId
+  case mc of
+    Nothing -> sendPrivate "Client doesn't exist"
+    Just c  -> do
+      case M.lookup var (vars c) of
+        Nothing -> sendPrivate $ "No var '" ++ var ++ "' found."
+        Just _  -> do
+          runDB $ deleteWhere [VarUserEq ownerId, VarNameEq var]
+          updateClient ownerId $ \c -> Just c { vars = M.delete var (vars c) }
+          case ownerId == uid of
+            True  -> send uid serverName $ ownerNick ++ " deleted '" ++ var ++ "'."
+            False -> send uid serverName $ "GM deleted " ++ ownerNick ++ "'s variable '" ++ var ++ "'."
+          t <- getTable uid
+          liftIO . atomically $ sendVarUpdate t UpdateAll
+          return ResponseSuccess
 
 cmdDelVar uid u nick cmd _ = return $ ResponsePrivate syntaxDelVar
 
 
+varBreakdown :: UserId -> String -> String -> Handler (UserId, String, String)
+varBreakdown uid nick invar = do
+  t <- getTable uid
+  case ":" `isInfixOf` invar of
+    False -> return (uid, nick, invar)
+    True  -> do
+      when (gm t /= uid) $ sendPrivate "Only the GM can modify others' variables."
+      let (owner,_:var) = span (/=':') invar
+      (cid,_) <- getClientByNick uid owner
+      return (cid,owner,var)
+
+
+syntaxQuit :: String
+syntaxQuit = "Syntax: /quit"
+
+cmdQuit uid u nick cmd _ = do
+  send uid serverName $ nick ++ " has quit."
+  removeClient uid
+  return ResponseSuccess
+  
+
+syntaxKick :: String
+syntaxKick = "Syntax: /kick <nickname> -- kicks the player with the given nickname from the table. GM only."
+
+cmdKick uid u nick cmd [name] = do
+  t <- getTable uid
+  when (gm t /= uid) $ sendPrivate "The /kick command is GM-only."
+  (cid, c) <- getClientByNick uid name
+  send uid serverName $ name ++ " was kicked by the GM."
+  removeClient cid
+  return ResponseSuccess
+
+cmdKick uid u nick cmd _ = return $ ResponsePrivate syntaxKick
+
+
+
+syntaxThac0 :: String
+syntaxThac0 = "Syntax: /thac0 <THAC0> -- (Note: That's a zero.) For example, if your THAC0 was 16, you would run /thac0 16. The command returns the AC you would hit."
+
+cmdThac0 uid u nick cmd [strthac0] = do
+  thac0 <- case maybeRead strthac0 of
+    Nothing -> sendPrivate "Couldn't read the THAC0 number"
+    Just t  -> return (t::Integer)
+  roll <- liftIO $ randomRIO (1,20)
+  let hitAC = thac0 - roll
+  send uid serverName $ nick ++ " rolled against THAC0 " ++ show thac0 ++ " and hit AC " ++ show hitAC ++ " (" ++ show roll ++ ")"
+  return ResponseSuccess
 
 
