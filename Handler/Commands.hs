@@ -494,7 +494,8 @@ syntaxVar :: String
 syntaxVar = "Syntax: /var <name> <value> -- Sets the variable 'name' to have the value 'value'. Everyone will see the updated value."
 
 
-cmdVar uid u nick cmd [var,value] = do
+cmdVar uid u nick cmd (var:val) = do
+  let value = unwords val
   runDB $ do
     deleteWhere [VarUserEq uid, VarNameEq var]
     insert $ Var uid var value
