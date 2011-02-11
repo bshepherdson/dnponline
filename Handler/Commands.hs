@@ -512,12 +512,19 @@ syntaxDelVar :: String
 syntaxDelVar = "Syntax: /delvar <name> -- Deletes the variable 'var'."
 
 cmdDelVar uid u nick cmd [var] = do
-  runDB $ deleteWhere [VarUserEq uid, VarNameEq var]
-  updateClient uid $ \c -> Just c { vars = M.delete var (vars c) }
-  send uid serverName $ nick ++ " deleted '" ++ var ++ "'."
-  t <- getTable uid
-  liftIO . atomically $ sendVarUpdate t UpdateAll
-  return ResponseSuccess
+  mc <- getClientById uid
+  case mc of
+    Nothing -> sendPrivate "Client doesn't exist"
+    Just c  -> do
+      case M.lookup var (vars c) of
+        Nothing -> sendPrivate $ "No var '" ++ var ++ "' found."
+        Just _  -> do
+          runDB $ deleteWhere [VarUserEq uid, VarNameEq var]
+          updateClient uid $ \c -> Just c { vars = M.delete var (vars c) }
+          send uid serverName $ nick ++ " deleted '" ++ var ++ "'."
+          t <- getTable uid
+          liftIO . atomically $ sendVarUpdate t UpdateAll
+          return ResponseSuccess
 
 cmdDelVar uid u nick cmd _ = return $ ResponsePrivate syntaxDelVar
 
