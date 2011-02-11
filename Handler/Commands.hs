@@ -58,6 +58,7 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("d20",  cmdRoll)
                         , ("d100", cmdRoll)
                         , ("d%",   cmdRoll)
+                        , ("thac0", cmdThac0)
 
                         -- board commands
                         , ("place",  cmdPlace)
@@ -103,6 +104,7 @@ rollHelp = [ ("roll",    ("Rolls dice and shows the result to everyone.", syntax
            , ("d20",     ("Shortcut to roll 1d20.", "Syntax: /d20"))
            , ("d100",    ("Shortcut to roll 1d100.", "Syntax: /d100"))
            , ("d%",      ("Shortcut to roll d%.", "Syntax: /d%"))
+           , ("thac0",   ("Make and attack roll against your THAC0 (used in AD&D 2nd ed.)", syntaxThac0))
            ]
 
 gridHelpSummary = ("Grid Commands", "These commands manipulate the combat grid: placing and moving tokens.")
@@ -541,4 +543,19 @@ cmdKick uid u nick cmd [name] = do
   return ResponseSuccess
 
 cmdKick uid u nick cmd _ = return $ ResponsePrivate syntaxKick
+
+
+
+syntaxThac0 :: String
+syntaxThac0 = "Syntax: /thac0 <THAC0> -- (Note: That's a zero.) For example, if your THAC0 was 16, you would run /thac0 16. The command returns the AC you would hit."
+
+cmdThac0 uid u nick cmd [strthac0] = do
+  thac0 <- case maybeRead strthac0 of
+    Nothing -> sendPrivate "Couldn't read the THAC0 number"
+    Just t  -> return (t::Integer)
+  roll <- liftIO $ randomRIO (1,20)
+  let hitAC = thac0 - roll
+  send uid serverName $ nick ++ " rolled against THAC0 " ++ show thac0 ++ " and hit AC " ++ show hitAC ++ " (" ++ show roll ++ ")"
+  return ResponseSuccess
+
 
