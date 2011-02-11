@@ -57,7 +57,7 @@ getCheckInR = do
       let sorted = sortBy (comparing fst) . sortBy (comparing (fst.snd)) $ vs  -- sorted by nick and then by var name
       --liftIO $ putStrLn $ "Sending vars to " ++ show uid
       jsonToRepJson $ jsonMap [("type", jsonScalar "vars"),
-                               ("vars", jsonList $ map (\v -> zipJson ["nick","var","value"]
+                               ("vars", jsonList $ map (\v -> zipJson ["nick","name","value"]
                                                                       $ map ($ v) [fst, fst.snd, snd.snd])
                                                        vs
                                )]

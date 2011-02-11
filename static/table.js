@@ -116,7 +116,7 @@ function updateVars(newVars) {
 
     for(i in newVars){
         var v = newVars[i];
-        varsHtml += "<tr class='vars'><td class='vars'>" + v.nick + "</td><td class='vars'>" + v.var + "</td><td class='vars'>" + v.value + "</td></tr>";
+        varsHtml += "<tr class='vars'><td class='vars'>" + v.nick + "</td><td class='vars'>" + v.name + "</td><td class='vars'>" + v.value + "</td></tr>";
         $("#varstable").html(varsHtml);
     }
 
