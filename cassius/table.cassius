@@ -28,6 +28,7 @@ input#chatmessage
     font-family: Helvetica,Arial,Helmet,Freesans,sans-serif
     color: #CCCCCC
 table.grid
+    background-image:url('/images/map.jpg');
     text-align: center
     border: 1px
     padding: 0px
