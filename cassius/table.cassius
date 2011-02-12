@@ -1,3 +1,6 @@
+a
+    color: #8888FF
+    visited: #8888FF
 h1
     text-align: center
     color: #CCCCCC
@@ -60,7 +63,7 @@ h4.vars
 
     background-color: #CCCCCC
     color: black
-    a
+    h4.vars a
         color: black
         visited: black
         text-decoration: none

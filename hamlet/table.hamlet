@@ -8,6 +8,12 @@
     <form id="chatform">
         <div>
             <div .floatRight>
+                <h3>Variables</h3>
+                <p>
+                    <a href="javascript:expandAllVars()">Expand
+                    &nbsp;or&nbsp;
+                    <a href="javascript:collapseAllVars()">Collapse
+                    &nbsp;all
                 <div id="varstable">
             <div id="chatcontainer">
                 <div .bordernormal id="chattextarea">

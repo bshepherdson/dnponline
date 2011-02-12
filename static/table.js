@@ -147,7 +147,6 @@ function updateVars(newVars) {
             varsHtml += v.visible ? "" : " hidden";
             varsHtml += "\" id=\"" + v.nick + "table\">";
             varsHtml += "<table class=\"vars\">";
-            varsHtml += "<tr class='vars'><td class='vars'>Variable</td><td class='vars'>Value</td></tr>";
             for(var j = 0; j < v.vars.length; j++) {
                 varsHtml += "<tr class=\"vars\">";
                 varsHtml += "<td class=\"vars\">" + v.vars[j][0] + "</td>";
@@ -173,6 +172,26 @@ function toggleVarsTable(nick) {
         vartables[nick].visible = true;
     }
 }
+
+function collapseAllVars() {
+    expandCollapseAllVars(false, function(v){ v.addClass('hidden'); });
+}
+
+function expandAllVars() {
+    expandCollapseAllVars(true, function(v){ v.removeClass('hidden'); });
+}
+
+function expandCollapseAllVars(visible, f) {
+    nicks = Object.keys(vartables);
+    if(nicks) {
+        for(var i = 0; i < nicks.length; i++) {
+            nicks[i].visible = visible;
+        }
+    }
+
+    f($("div.varstable"));
+}
+
 
 
 var chatHistory = [];
