@@ -61,6 +61,7 @@ getCheckInR = do
                                                                       $ map ($ v) [fst, fst.snd, snd.snd])
                                                        vs
                                )]
+    MessageJunk -> jsonToRepJson $ jsonMap [("type", jsonScalar "junk")]
 
 
 postSayR :: Handler RepJson
@@ -102,11 +103,22 @@ runCommand uid u nick msg _ = send uid nick msg
 
 
 getTableR :: Handler RepHtml
-getTableR = defaultLayout $ do
-  setTitle "Dice and Paper Online - Table"
-  addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
-  addScript $ StaticR $ StaticRoute ["table.js"] []
-  $(widgetFile "table")
+getTableR = do
+  (uid, u) <- requireAuth
+  mc <- getClientById uid
+  case mc of
+    Nothing -> return ()
+    Just c  -> do
+      t <- getTable uid
+      liftIO . atomically $ do
+        sequence_ . replicate 3 $ writeTChan (channel c) MessageJunk
+        sendVarUpdate t (UpdateUser uid)
+        sendBoardUpdate t (UpdateUser uid)
+  defaultLayout $ do
+    setTitle "Dice and Paper Online - Table"
+    addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
+    addScript $ StaticR $ StaticRoute ["table.js"] []
+    $(widgetFile "table")
 
 
 

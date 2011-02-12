@@ -27,16 +27,21 @@ gridRows = 15
 -- name by which the server appears in chat messages
 serverName = "::!:" -- will appear as, eg.:  ::!:: oldnick is now known as newnick
 
+maybeTable :: UserId -> Handler (Maybe Table)
+maybeTable uid = do
+  dnp <- getYesod
+  mtid <- liftIO . atomically $ readTVar (userTables dnp) >>= return . M.lookup uid
+  case mtid of
+    Nothing  -> return Nothing
+    Just tid -> do
+      liftIO . atomically $ readTVar (tables dnp) >>= return . M.lookup tid
 
 getTable :: UserId -> Handler Table
 getTable uid = do
-  dnp <- getYesod
-  mtid <- liftIO . atomically $ readTVar (userTables dnp) >>= return . M.lookup uid
-  tid <- case mtid of
-           Nothing  -> invalidArgs ["Not in a table yet"]
-           Just tid -> return tid
-  mtable <- liftIO . atomically $ readTVar (tables dnp) >>= return . M.lookup tid
-  maybe (invalidArgs ["Invalid table ID"]) return mtable
+  mt <- maybeTable uid
+  case mt of
+    Nothing -> invalidArgs ["Not in a table yet"]
+    Just t  -> return t
 
 
 updateTable :: UserId -> (Table -> Maybe Table) -> Handler ()
@@ -164,8 +169,10 @@ getClientByNick uid target = do
 
 getClientById :: UserId -> Handler (Maybe Client)
 getClientById uid = do
-  t <- getTable uid
-  return $ M.lookup uid (clients t)
+  mt <- maybeTable uid
+  case mt of
+    Nothing -> return Nothing
+    Just t  -> return $ M.lookup uid (clients t)
 
 
 getTokenAt :: Int -> Int -> Table -> Maybe Token

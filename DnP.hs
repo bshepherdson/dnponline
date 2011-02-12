@@ -87,6 +87,7 @@ data Message = MessageChat String String -- sender, message
              | MessageBoard [Token]
              | MessageWhisper String String -- sender, message
              | MessageVars [(String,(String,String))] -- nick, var name, value
+             | MessageJunk -- no content. used on refreshing /table
 
 
 -- | A useful synonym; most of the handler functions in your application

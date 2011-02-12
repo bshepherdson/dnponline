@@ -74,6 +74,8 @@ function checkIn () {
             display("Whisper from " + data.sender + ": " + data.content);
         } else if(data.type == "vars") {
             updateVars(data.vars);
+        } else if(data.type == "junk") {
+            // do nothing
         }
     }, 
     error: function() {
