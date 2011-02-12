@@ -46,6 +46,10 @@ $(document).ready(function () {
 
     $("#chatscrolllock").click(scrollLock);
 
+    window.onbeforeunload = function () {
+        return "Are you sure you want to leave the page?";
+    }
+
     checkIn();
 });
 
