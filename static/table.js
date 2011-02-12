@@ -36,13 +36,15 @@ $(document).ready(function () {
     // attach the click() event to all the td cells
     $("td.grid").click(clickHandler);
 
+    $("#d2button").click(rollDice(2));
+    $("#d3button").click(rollDice(3));
     $("#d4button").click(rollDice(4));
     $("#d6button").click(rollDice(6));
     $("#d8button").click(rollDice(8));
     $("#d10button").click(rollDice(10));
     $("#d12button").click(rollDice(12));
     $("#d20button").click(rollDice(20));
-    $("#d100button").click(rollDice('%'));
+    $("#d100button").click(rollDice(100));
 
     $("#chatscrolllock").click(scrollLock);
 
@@ -306,7 +308,7 @@ function toggleGridVisibility() {
 
 function rollDice(n) {
     return function (e) {
-        send("/d"+n);
+        send("/roll d"+n);
     };
 }
 

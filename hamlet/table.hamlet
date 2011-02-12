@@ -20,8 +20,10 @@
                 <img id="chatscrolllock" src="/static/images/blue.png">
                 <br>
                 <p .fullwidth>
-                    <input .fullwidth id="chatmessage" type="text" maxlength="1000">
+                    <input .fullwidth id="chatmessage" type="text" tabindex=1 maxlength="1000">
                 <p>
+                    <input type="button" id="d2button"  value="d2">
+                    <input type="button" id="d3button"  value="d3">
                     <input type="button" id="d4button"  value="d4">
                     <input type="button" id="d6button"  value="d6">
                     <input type="button" id="d8button"  value="d8">
