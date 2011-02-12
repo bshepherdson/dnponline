@@ -102,8 +102,14 @@ function getColor (sender) {
     }
 }
 
+var urlRegexWWW = new RegExp("((?!http://)www\.[^ \,\!]*)", "g");
+var urlRegexHTTP = new RegExp("(http://[^ \,\!]*|www\.[^ \,\!]*)", "g");
 
 function display (msg) {
+    // look for URLs and make them into links
+    msg = msg.replace(urlRegexWWW, "http://$1");
+    msg = msg.replace(urlRegexHTTP, "<a href=\"$1\">$1</a>");
+
     var ta = $("#chattextarea");
     ta.html(ta.html() + msg + "<br/>\n");
     if(!scrollLocked) {
@@ -150,8 +156,6 @@ function updateVars(newVars) {
     }
 
     var nicks = Object.keys(vartables);
-    console.log(nicks);
-    console.log(vartables);
     if(nicks) {
         nicks.sort();
 
