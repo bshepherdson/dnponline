@@ -10,9 +10,9 @@
             <div .floatRight>
                 <h3>Variables</h3>
                 <p>
-                    <a href="javascript:expandAllVars()">Expand
+                    <a href="javascript:expandAllVars()">Show
                     &nbsp;or&nbsp;
-                    <a href="javascript:collapseAllVars()">Collapse
+                    <a href="javascript:collapseAllVars()">Hide
                     &nbsp;all
                 <div id="varstable">
             <div id="chatcontainer">
