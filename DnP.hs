@@ -71,6 +71,7 @@ data Table = Table
 data Client = Client
     { channel :: TChan Message
     , clientNick :: String
+    , color :: String
     , lastToken :: Maybe String
     , vars :: Map String String
     }
@@ -85,6 +86,7 @@ data Token = Token
 
 data Message = MessageChat String String -- sender, message
              | MessageBoard [Token]
+             | MessageColor [(String, String)] -- nick, color
              | MessageWhisper String String -- sender, message
              | MessageVars [(String,[(String,String)])] -- nick, var name, value
              | MessageJunk -- no content. used on refreshing /table
@@ -192,7 +194,7 @@ instance YesodAuth DnP where
         case x of
             Just (uid, _) -> return $ Just uid
             Nothing -> do
-                  fmap Just $ insert $ User (credsIdent creds) Nothing ("user" ++ take 10 (credsIdent creds))
+                  fmap Just $ insert $ User (credsIdent creds) Nothing ("user" ++ take 10 (credsIdent creds)) "#cccccc"
 
     showAuthId _ = showIntegral
     readAuthId _ = readIntegral
@@ -247,7 +249,7 @@ instance YesodAuthEmail DnP where
                 case emailUser e of
                     Just uid -> return $ Just uid
                     Nothing -> do
-                        uid <- insert $ User email Nothing (takeWhile (/='@') email)
+                        uid <- insert $ User email Nothing (takeWhile (/='@') email) "#cccccc"
                         update eid [EmailUser $ Just uid, EmailVerkey Nothing]
                         return $ Just uid
     getPassword = runDB . fmap (join . fmap userPassword) . get

@@ -84,6 +84,20 @@ sendTo sendId recvId msg = do
 
 data UpdateWhom = UpdateAll | UpdateUser UserId
 
+sendAllUpdates :: Table -> UpdateWhom -> STM ()
+sendAllUpdates t whom = do
+  sendBoardUpdate t whom
+  sendVarUpdate t whom
+  sendColorUpdate t whom
+
+sendColorUpdate :: Table -> UpdateWhom -> STM ()
+sendColorUpdate t UpdateAll = mapM_ (sendColorUpdate t . UpdateUser) $ M.keys (clients t)
+sendColorUpdate t (UpdateUser uid) = do
+  let colors = map (\c -> (clientNick c, color c)) $ M.elems (clients t)
+  case M.lookup uid (clients t) of
+    Nothing -> error "can't happen"
+    Just (Client { channel = chan }) -> writeTChan chan $ MessageColor colors
+
 sendBoardUpdate :: Table -> UpdateWhom -> STM ()
 sendBoardUpdate t UpdateAll = mapM_ (sendBoardUpdate t . UpdateUser) $ M.keys (clients t)
 sendBoardUpdate t (UpdateUser uid) = do

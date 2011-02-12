@@ -98,3 +98,7 @@ td.gridhighlight
     border-color: #CCCCCC
 .floatRight
     float: right
+.whisper
+    color: #33FF33
+.private
+    color: #FF3333

@@ -21,7 +21,8 @@ import Control.Concurrent.STM.TChan
 
 import System.Directory
 import System.Random
-import Text.ParserCombinators.Parsec
+import Text.ParserCombinators.Parsec hiding (string, count)
+import qualified Text.ParserCombinators.Parsec as P
 
 import Data.List hiding (insert)
 
@@ -41,6 +42,7 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("help",    cmdHelp)
                         , ("quit",    cmdQuit)
                         , ("kick",    cmdKick)
+                        , ("color",   cmdColor)
 
                         -- dice commands
                         , ("roll", cmdRoll)
@@ -89,6 +91,7 @@ chatHelp = [ ("nick",    ("Changes your nickname.", syntaxNick))
            , ("help",    ("Displays this list, or details on a command.", syntaxHelp))
            , ("quit",    ("Leaves the table you're currently in.", syntaxQuit))
            , ("kick",    ("Kicks a user from the table. GM only.", syntaxKick))
+           , ("color",   ("Sets your text color.", syntaxColor))
            ]
 
 rollHelpSummary = ("Dice Commands", "These commands roll dice, publicly, privately, or shared with the GM.")
@@ -161,10 +164,11 @@ cmdHost uid u nick cmd [name,pass] = do
       Just _  -> return $ ResponsePrivate $ "Table " ++ name ++ " already exists."
       Nothing -> do
         chan <- newTChan
-        let t = Table (M.singleton uid (Client chan nick Nothing (M.fromList vars))) pass uid M.empty
+        let t = Table (M.singleton uid (Client chan nick (userColor u) Nothing (M.fromList vars))) pass uid M.empty
         writeTVar (tables dnp) $ M.insert name t ts
         modifyTVar (userTables dnp) $ M.insert uid name
         sendVarUpdate t UpdateAll
+        sendColorUpdate t UpdateAll
         return $ ResponsePrivate $ "Table " ++ name ++ " successfully created."
   
 
@@ -188,7 +192,7 @@ cmdJoin uid u nick cmd [name,pass] = do
               False -> return $ ResponsePrivate $ "Bad password for table " ++ name
               True  -> do
                 chan <- newTChan
-                let t'  = t { clients = M.insert uid (Client chan nick Nothing (M.fromList vars)) (clients t) }
+                let t'  = t { clients = M.insert uid (Client chan nick (userColor u) Nothing (M.fromList vars)) (clients t) }
                     userTable' = M.insert uid name userTable
                     ts' = M.insert name t' ts
                 writeTVar (userTables dnp) userTable'
@@ -196,6 +200,7 @@ cmdJoin uid u nick cmd [name,pass] = do
                 rawSend t serverName $ nick ++ " has joined the table." -- deliberately t, sends to everyone else, not the new client
                 sendBoardUpdate t' (UpdateUser uid)
                 sendVarUpdate   t' UpdateAll
+                sendColorUpdate t' UpdateAll
                 return $ ResponsePrivate $ "Successfully joined table " ++ name
 cmdJoin uid u nick cmd _ = return $ ResponsePrivate $ syntaxJoin
 
@@ -241,6 +246,8 @@ cmdRoll uid u nick cmd [x]  = do
       Left _ -> return $ ResponsePrivate syntaxRoll
       Right (a,b,c) | a <= 0 -> return $ ResponsePrivate "Number of dice cannot be less than 1."
                     | b <= 0 -> return $ ResponsePrivate "Size of dice cannot be less than 1."
+                    | a > 1000 -> return $ ResponsePrivate "Number of dice cannot exceed 1000."
+                    | b > 1000 -> return $ ResponsePrivate "Size of dice cannot exceed 1000."
                     | otherwise -> do
                         rolls <- replicateM a $ liftIO (randomRIO (1,b))
                         let total = sum' rolls + c
@@ -582,5 +589,27 @@ cmdThac0 uid u nick cmd [strthac0] = do
   let hitAC = thac0 - roll
   send uid serverName $ nick ++ " rolled against THAC0 " ++ show thac0 ++ " and hit AC " ++ show hitAC ++ " (" ++ show roll ++ ")"
   return ResponseSuccess
+
+
+syntaxColor :: String
+syntaxColor = "Syntax: /color <color> -- The color is an HTML color format. It can be #rgb, #rrggbb (where r, g and b are hexadecimal values for red, green and blue respectively) or one of the English color constants like red, blue, green black, white. The default text color on DnP is #cccccc, for reference. This command only changes the color of your name."
+
+cmdColor uid u nick cmd [color] = do
+  case parse parseColor "" color of
+    Left  _ -> sendPrivate "Illegal color format. See /help color."
+    Right _ -> return ()
+  runDB $ update uid [UserColor color]
+  updateClient uid $ \c -> Just c { color = color }
+  t <- getTable uid
+  liftIO . atomically $ sendColorUpdate t UpdateAll -- so the name refreshes for everyone.
+  return $ ResponsePrivate $ "Color successfully changed to " ++ color ++ "."
+ where parseColor = do
+         a <- choice [ P.char '#' >> P.count 6 hexDigit
+                     , P.char '#' >> P.count 3 hexDigit
+                     , P.string "aqua" , P.string "black" , P.string "blue" , P.string "fuchsia" , P.string "gray" , P.string "grey"
+                     , P.string "green" , P.string "lime" , P.string "maroon" , P.string "navy" , P.string "olive" , P.string "purple" , P.string "red"
+                     , P.string "silver" , P.string "teal" , P.string "white" , P.string "yellow"
+                     ]
+         return ()
 
 

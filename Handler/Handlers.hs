@@ -54,6 +54,7 @@ getCheckInR = do
       jsonToRepJson $ jsonMap [("type", jsonScalar "vars"),
                                ("vars", jsonList $ map (\(c,cvs) -> jsonMap [("nick", jsonScalar c), ("vars", jsonList $ map (\(var,val) -> jsonList [ jsonScalar var, jsonScalar val ]) cvs)]) vs)]
     MessageJunk -> jsonToRepJson $ jsonMap [("type", jsonScalar "junk")]
+    MessageColor cs -> jsonToRepJson $ jsonMap [("type", jsonScalar "colors"), ("colors", jsonList $ map (\(nick,color) -> jsonList [jsonScalar nick, jsonScalar color]) cs)]
 
 
 postSayR :: Handler RepJson
@@ -104,8 +105,7 @@ getTableR = do
       t <- getTable uid
       liftIO . atomically $ do
         sequence_ . replicate 3 $ writeTChan (channel c) MessageJunk
-        sendVarUpdate t (UpdateUser uid)
-        sendBoardUpdate t (UpdateUser uid)
+        sendAllUpdates t UpdateAll
   defaultLayout $ do
     setTitle "Dice and Paper Online - Table"
     addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"

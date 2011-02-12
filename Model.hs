@@ -13,6 +13,7 @@ User
     ident String
     password String Maybe Update
     nick String Update
+    color String Update
     UniqueUser ident
 Email
     email String

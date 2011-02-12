@@ -56,7 +56,7 @@ var mapTokens = [];
 function send(msg) {
     $.ajax({ type: 'POST', url: "/say", data: { message: msg }, success: function(o) {
         if(o.status == "private") {
-            display("*** " + o.message);
+            display("<span class=\"private\">*** " + o.message + "</span>");
         }
     } });
 }
@@ -66,15 +66,22 @@ function checkIn () {
     $.ajax({ dataType: "json", url: "/check", data: { }, cache: false,
     success: function(data,textStatus,xml) {
         if(data.type == "chat") {
-            display(data.sender + ": " + data.content);
+            var color = getColor(data.sender);
+            display("<span style=\"color: " + color + "\">"+data.sender + ":</span> " + data.content);
         } else if(data.type == "board") {
             updateMap(data.tokens);
         } else if(data.type == "whisper") {
-            display("Whisper from " + data.sender + ": " + data.content);
+            var color = getColor(data.sender);
+            display("<span class=\"whisper\">Whisper from <span style=\"color: " + color + "\">" + data.sender + ":</span> " + data.content + "</span>");
         } else if(data.type == "vars") {
             updateVars(data.vars);
         } else if(data.type == "junk") {
             // do nothing
+        } else if(data.type == "colors") {
+            userColors = {};
+            for(var i = 0; i < data.colors.length; i++) {
+                userColors[data.colors[i][0]] = data.colors[i][1];
+            }
         }
     }, 
     error: function() {
@@ -85,10 +92,19 @@ function checkIn () {
     }});
 }
 
+var userColors = {};
+function getColor (sender) {
+    if(userColors && userColors[sender]){
+        return userColors[sender];
+    } else {
+        return "#cccccc";
+    }
+}
+
+
 function display (msg) {
     var ta = $("#chattextarea");
     ta.html(ta.html() + msg + "<br/>\n");
-    //console.log(ta.scrollTop + "," + ta.height + "," + ta.scrollHeight);
     if(!scrollLocked) {
         ta.scrollTop(100000000);
     } else {
