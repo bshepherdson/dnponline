@@ -89,6 +89,8 @@ function checkIn () {
             for(var i = 0; i < data.colors.length; i++) {
                 userColors[data.colors[i][0]] = data.colors[i][1];
             }
+        } else if(data.type == "commands") {
+            updateCommands(data.commands); 
         }
     }, 
     error: function() {
@@ -105,6 +107,33 @@ function getColor (sender) {
         return userColors[sender];
     } else {
         return "#cccccc";
+    }
+}
+
+var userCommands = {};
+
+function updateCommands(cmds) {
+    userCommands = {};
+    for(var i = 0; i < cmds.length; i++) {
+        userCommands[cmds[i][0]] = cmds[i][1];
+    }
+
+    cmdsHtml = "";
+    var names = Object.keys(userCommands);
+    if(names) {
+        for(var i = 0; i < names.length; i++) {
+            cmdsHtml += "<input type='button' onclick='sendUserCommand(\"" + names[i] + "\")' value=\"" + names[i] + "\"> ";
+        }
+    }
+
+    $("#usercommands").html(cmdsHtml);
+}
+
+function sendUserCommand(cmd) {
+    if(userCommands && userCommands[cmd]){
+        send(userCommands[cmd]);
+    } else {
+        display("::!:: Couldn't find command " + cmd + ". This shouldn't happen. Please report this bug.");
     }
 }
 

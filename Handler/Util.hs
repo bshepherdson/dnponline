@@ -89,6 +89,14 @@ sendAllUpdates t whom = do
   sendBoardUpdate t whom
   sendVarUpdate t whom
   sendColorUpdate t whom
+  sendCommandUpdate t whom
+
+sendCommandUpdate :: Table -> UpdateWhom -> STM ()
+sendCommandUpdate t UpdateAll = mapM_ (sendCommandUpdate t . UpdateUser) $ M.keys (clients t)
+sendCommandUpdate t (UpdateUser uid) = do
+  case M.lookup uid (clients t) of
+    Nothing -> error "can't happen"
+    Just (Client { channel = chan, commands = cmds }) -> writeTChan chan $ MessageCommands (M.assocs cmds)
 
 sendColorUpdate :: Table -> UpdateWhom -> STM ()
 sendColorUpdate t UpdateAll = mapM_ (sendColorUpdate t . UpdateUser) $ M.keys (clients t)

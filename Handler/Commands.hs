@@ -158,17 +158,19 @@ cmdHost :: Cmd
 cmdHost uid u nick cmd [name,pass] = do
   dnp <- getYesod
   vars <- fmap (map (\(_, Var _ var val) -> (var,val))) . runDB $ selectList [VarUserEq uid] [] 0 0
+  cmds <- fmap (map (\(_, Command _ name usrcmd) -> (name, usrcmd))) . runDB $ selectList [CommandUserEq uid] [] 0 0
   liftIO . atomically $ do
     ts <- readTVar $ tables dnp
     case M.lookup name ts of
       Just _  -> return $ ResponsePrivate $ "Table " ++ name ++ " already exists."
       Nothing -> do
         chan <- newTChan
-        let t = Table (M.singleton uid (Client chan nick (userColor u) Nothing (M.fromList vars))) pass uid M.empty
+        let t = Table (M.singleton uid (Client chan nick (userColor u) (M.fromList cmds) Nothing (M.fromList vars))) pass uid M.empty
         writeTVar (tables dnp) $ M.insert name t ts
         modifyTVar (userTables dnp) $ M.insert uid name
         sendVarUpdate t UpdateAll
         sendColorUpdate t UpdateAll
+        sendCommandUpdate t UpdateAll
         return $ ResponsePrivate $ "Table " ++ name ++ " successfully created."
   
 
@@ -179,6 +181,7 @@ cmdJoin :: Cmd
 cmdJoin uid u nick cmd [name,pass] = do
   dnp <- getYesod
   vars <- fmap (map (\(_, Var _ var val) -> (var,val))) . runDB $ selectList [VarUserEq uid] [] 0 0
+  cmds <- fmap (map (\(_, Command _ name usrcmd) -> (name, usrcmd))) . runDB $ selectList [CommandUserEq uid] [] 0 0
   liftIO . atomically $ do
     userTable <- readTVar $ userTables dnp
     ts <- readTVar $ tables dnp
@@ -192,7 +195,7 @@ cmdJoin uid u nick cmd [name,pass] = do
               False -> return $ ResponsePrivate $ "Bad password for table " ++ name
               True  -> do
                 chan <- newTChan
-                let t'  = t { clients = M.insert uid (Client chan nick (userColor u) Nothing (M.fromList vars)) (clients t) }
+                let t'  = t { clients = M.insert uid (Client chan nick (userColor u) (M.fromList cmds) Nothing (M.fromList vars)) (clients t) }
                     userTable' = M.insert uid name userTable
                     ts' = M.insert name t' ts
                 writeTVar (userTables dnp) userTable'
@@ -201,6 +204,7 @@ cmdJoin uid u nick cmd [name,pass] = do
                 sendBoardUpdate t' (UpdateUser uid)
                 sendVarUpdate   t' UpdateAll
                 sendColorUpdate t' UpdateAll
+                sendCommandUpdate t' (UpdateUser uid)
                 return $ ResponsePrivate $ "Successfully joined table " ++ name
 cmdJoin uid u nick cmd _ = return $ ResponsePrivate $ syntaxJoin
 
@@ -478,20 +482,25 @@ cmdDefine uid u nick cmd (name:newcmds) = do
   runDB $ do
     deleteWhere [CommandUserEq uid, CommandNameEq name]
     insert $ Command uid name newcmd
+  updateClient uid $ \c -> Just c { commands = M.insert name newcmd (commands c) }
+  t <- getTable uid
+  liftIO . atomically $ sendCommandUpdate t (UpdateUser uid)
   return $ ResponsePrivate $ "New command /"++name++" successfully stored."
 
 
 syntaxUndef :: String
 syntaxUndef = "Syntax: /undef <name> -- Undefines a previously defined command."
 
-
 cmdUndef uid u nick cmd [name] = do
-  cmdList <- runDB $ selectList [CommandUserEq uid, CommandNameEq name] [] 0 0
-  case cmdList of
-    [] -> return $ ResponsePrivate $ "No user-defined command named '" ++ name ++ "' found."
-    [x] -> do runDB $ deleteWhere [CommandUserEq uid, CommandNameEq name]
-              return $ ResponsePrivate $ "Command /"++name++" removed."
-    _   -> return $ ResponsePrivate $ "Multiple user-defined commands named '" ++ name ++ "' were found. This should be impossible, there has been a bug. Please notify the developers."
+  mc <- fmap (fmap (M.lookup name . commands)) $ getClientById uid
+  case mc of
+    Nothing -> return $ ResponsePrivate $ "No user-defined command named '" ++ name ++ "' found."
+    Just c  -> do 
+      updateClient uid $ \c -> Just c { commands = M.delete name (commands c) }
+      runDB $ deleteWhere [CommandUserEq uid, CommandNameEq name]
+      t <- getTable uid
+      liftIO . atomically $ sendCommandUpdate t (UpdateUser uid)
+      return $ ResponsePrivate $ "Command /"++name++" removed."
 
 cmdUndef uid u nick cmd _ = return $ ResponsePrivate syntaxUndef
 

@@ -72,6 +72,7 @@ data Client = Client
     { channel :: TChan Message
     , clientNick :: String
     , color :: String
+    , commands :: Map String String
     , lastToken :: Maybe String
     , vars :: Map String String
     }
@@ -89,6 +90,7 @@ data Message = MessageChat String String -- sender, message
              | MessageColor [(String, String)] -- nick, color
              | MessageWhisper String String -- sender, message
              | MessageVars [(String,[(String,String)])] -- nick, var name, value
+             | MessageCommands [(String, String)] -- command, value
              | MessageJunk -- no content. used on refreshing /table
 
 

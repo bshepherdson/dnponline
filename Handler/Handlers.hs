@@ -52,9 +52,13 @@ getCheckInR = do
                                 )]
     MessageVars vs -> do
       jsonToRepJson $ jsonMap [("type", jsonScalar "vars"),
-                               ("vars", jsonList $ map (\(c,cvs) -> jsonMap [("nick", jsonScalar c), ("vars", jsonList $ map (\(var,val) -> jsonList [ jsonScalar var, jsonScalar val ]) cvs)]) vs)]
+                               ("vars", jsonList $ map (\(c,cvs) -> jsonMap [("nick", jsonScalar c), ("vars", jsonPairs cvs)]) vs)]
     MessageJunk -> jsonToRepJson $ jsonMap [("type", jsonScalar "junk")]
-    MessageColor cs -> jsonToRepJson $ jsonMap [("type", jsonScalar "colors"), ("colors", jsonList $ map (\(nick,color) -> jsonList [jsonScalar nick, jsonScalar color]) cs)]
+    MessageColor cs -> jsonToRepJson $ jsonMap [("type", jsonScalar "colors"), ("colors", jsonPairs cs)]
+    MessageCommands cmds -> jsonToRepJson $ jsonMap [("type", jsonScalar "commands"), ("commands", jsonPairs cmds)]
+
+
+jsonPairs xs = jsonList $ map (\(x,y) -> jsonList [jsonScalar x, jsonScalar y]) xs
 
 
 postSayR :: Handler RepJson
@@ -85,11 +89,10 @@ runCommand uid u nick ('/':msg) prevcmds = do
     Just f  -> f uid u nick cmd args
     Nothing -> do 
       -- retrieve the user's saved commands from the DB
-      cmds <- runDB $ selectList [CommandUserEq uid, CommandNameEq cmd] [] 0 0
-      case cmds of
-        []  -> return $ ResponsePrivate $ "Unknown command: '" ++ cmd ++ "'"
-        [(_,Command _ _ usrcmd)] -> runCommand uid u nick usrcmd (cmd:prevcmds)
-        _   -> return $ ResponsePrivate $ "ERROR: Multiple possible commands returned. Can't happen."
+      mc <- getClientById uid
+      case join $ fmap (M.lookup cmd . commands) mc of
+        Nothing    -> return $ ResponsePrivate $ "Unknown command: '" ++ cmd ++ "'"
+        Just value -> runCommand uid u nick value (cmd:prevcmds)
 
 runCommand uid u nick msg _ = send uid nick msg
 
@@ -105,7 +108,10 @@ getTableR = do
       t <- getTable uid
       liftIO . atomically $ do
         sequence_ . replicate 3 $ writeTChan (channel c) MessageJunk
-        sendAllUpdates t UpdateAll
+        sendVarUpdate t UpdateAll
+        sendBoardUpdate t (UpdateUser uid)
+        sendColorUpdate t UpdateAll
+        sendCommandUpdate t (UpdateUser uid)
   defaultLayout $ do
     setTitle "Dice and Paper Online - Table"
     addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"

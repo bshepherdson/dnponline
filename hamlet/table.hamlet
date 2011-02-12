@@ -31,3 +31,4 @@
                     <input type="button" id="d12button" value="d12">
                     <input type="button" id="d20button" value="d20">
                     <input type="button" id="d100button"  value="d%">
+                <div id="usercommands">
