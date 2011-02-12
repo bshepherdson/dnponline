@@ -12,6 +12,7 @@ $(document).ready(function () {
             chatHistory[i] = oldTemp;
             oldTemp = newTemp;
         }
+        chatHistory[i] = oldTemp;
 
         // and clear the field
         $("#chatmessage").attr("value", "");
