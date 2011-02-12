@@ -86,7 +86,7 @@ data Token = Token
 data Message = MessageChat String String -- sender, message
              | MessageBoard [Token]
              | MessageWhisper String String -- sender, message
-             | MessageVars [(String,(String,String))] -- nick, var name, value
+             | MessageVars [(String,[(String,String)])] -- nick, var name, value
              | MessageJunk -- no content. used on refreshing /table
 
 

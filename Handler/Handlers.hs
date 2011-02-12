@@ -41,26 +41,18 @@ getCheckInR = do
   msg <- liftIO . atomically $ readTChan chan
   case msg of
     MessageChat s c -> do
-      --liftIO $ putStrLn $ "Responding to " ++ show uid ++ " with " ++ show (s,c)
       jsonToRepJson $ zipJson ["type", "sender", "content"] ["chat",s,c]
     MessageWhisper s c -> do
-      --liftIO $ putStrLn $ "Whispering to " ++ show uid ++ " with " ++ show (s,c)
       jsonToRepJson $ zipJson ["type", "sender", "content"] ["whisper",s,c]
     MessageBoard ts -> do
-      --liftIO $ putStrLn $ "Sending Tokens to " ++ show uid
       jsonToRepJson $ jsonMap [("type", jsonScalar "board"), 
                                ("tokens", jsonList $ map (\t -> zipJson ["x","y","image","name"] 
                                                                         $ map ($ t) [show.tokenX, show.tokenY, file, tokenName]) 
                                                          ts
                                 )]
     MessageVars vs -> do
-      let sorted = sortBy (comparing fst) . sortBy (comparing (fst.snd)) $ vs  -- sorted by nick and then by var name
-      --liftIO $ putStrLn $ "Sending vars to " ++ show uid
       jsonToRepJson $ jsonMap [("type", jsonScalar "vars"),
-                               ("vars", jsonList $ map (\v -> zipJson ["nick","name","value"]
-                                                                      $ map ($ v) [fst, fst.snd, snd.snd])
-                                                       vs
-                               )]
+                               ("vars", jsonList $ map (\(c,cvs) -> jsonMap [("nick", jsonScalar c), ("vars", jsonList $ map (\(var,val) -> jsonList [ jsonScalar var, jsonScalar val ]) cvs)]) vs)]
     MessageJunk -> jsonToRepJson $ jsonMap [("type", jsonScalar "junk")]
 
 

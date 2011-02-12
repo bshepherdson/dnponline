@@ -93,7 +93,7 @@ sendBoardUpdate t (UpdateUser uid) = do
 
 
 sendVarUpdate :: Table -> UpdateWhom -> STM ()
-sendVarUpdate t whom = sendVarUpdate' t whom . concatMap (\c -> map ((,) (clientNick c)) (M.assocs (vars c))) . M.elems . clients $ t
+sendVarUpdate t whom = sendVarUpdate' t whom . map (\c -> (clientNick c, M.assocs (vars c))) . M.elems . clients $ t
   where sendVarUpdate' t UpdateAll allvars = mapM_ (\uid -> sendVarUpdate' t (UpdateUser uid) allvars) $ M.keys (clients t)
         sendVarUpdate' t (UpdateUser uid) allvars = do
           case M.lookup uid (clients t) of

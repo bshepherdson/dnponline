@@ -52,7 +52,6 @@ var needsToCheckIn = false;
 var waitBeforeCheckIn = false;
 
 var mapTokens = [];
-var userVars  = [];
 
 function send(msg) {
     $.ajax({ type: 'POST', url: "/say", data: { message: msg }, success: function(o) {
@@ -113,16 +112,66 @@ function updateMap(newTokens) {
     mapTokens = newTokens;
 }
 
-function updateVars(newVars) {
-    var varsHtml = "<table class='vars'><tr class='vars'><td class='vars'>Nick</td><td class='vars'>Variable</td><td class='vars'>Value</td></tr>";
 
-    for(i in newVars){
-        var v = newVars[i];
-        varsHtml += "<tr class='vars'><td class='vars'>" + v.nick + "</td><td class='vars'>" + v.name + "</td><td class='vars'>" + v.value + "</td></tr>";
-        $("#varstable").html(varsHtml);
+
+var vartables = {};
+
+Vartable = function(nick, vars) {
+    this.nick = nick;
+    this.vars = vars;
+    this.visible = false;
+}
+
+
+function updateVars(newVars) {
+    for(var i = 0; i < newVars.length; i++) {
+        if(vartables[newVars[i].nick]) {
+            vartables[newVars[i].nick].vars = newVars[i].vars;
+        } else {
+            vartables[newVars[i].nick] = new Vartable(newVars[i].nick, newVars[i].vars);
+        }
     }
 
-    userVars = newVars;
+    var nicks = Object.keys(vartables);
+    console.log(nicks);
+    console.log(vartables);
+    if(nicks) {
+        nicks.sort();
+
+        var varsHtml = "";
+        for(var i = 0; i < nicks.length; i++) {
+            var v = vartables[nicks[i]];
+            varsHtml += "<div class='vars'>";
+            varsHtml += "<h4 class='vars'><a href=\"javascript:toggleVarsTable('"+ v.nick +"')\">" + v.nick + "</a></h4>";
+            varsHtml += "<div class=\"varstable";
+            varsHtml += v.visible ? "" : " hidden";
+            varsHtml += "\" id=\"" + v.nick + "table\">";
+            varsHtml += "<table class=\"vars\">";
+            varsHtml += "<tr class='vars'><td class='vars'>Variable</td><td class='vars'>Value</td></tr>";
+            for(var j = 0; j < v.vars.length; j++) {
+                varsHtml += "<tr class=\"vars\">";
+                varsHtml += "<td class=\"vars\">" + v.vars[j][0] + "</td>";
+                varsHtml += "<td class=\"vars\">" + v.vars[j][1] + "</td>";
+                varsHtml += "</tr>";
+            }
+            varsHtml += "</table></div></div>";
+        }
+
+        $("#varstable").html(varsHtml);
+    }
+}
+
+
+function toggleVarsTable(nick) {
+    if(!vartables[nick]) return;
+
+    if(vartables[nick].visible){
+        $("#"+nick+"table").addClass("hidden");
+        vartables[nick].visible = false;
+    } else {
+        $("#"+nick+"table").removeClass("hidden");
+        vartables[nick].visible = true;
+    }
 }
 
 
