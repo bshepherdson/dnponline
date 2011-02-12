@@ -37,12 +37,17 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("who",  cmdWho)
                         , ("tables", cmdTables)
                         , ("gm",     cmdGM)
+                        , ("gmwhisper", cmdGMWhisper)
+                        , ("gmw",     cmdGMWhisper)
                         , ("whisper", cmdWhisper)
                         , ("w",       cmdWhisper)
                         , ("help",    cmdHelp)
                         , ("quit",    cmdQuit)
                         , ("kick",    cmdKick)
                         , ("color",   cmdColor)
+                        , ("mute",    cmdMute)
+                        , ("unmute",  cmdUnmute)
+                        , ("muted",   cmdMuted)
 
                         -- dice commands
                         , ("roll", cmdRoll)
@@ -87,11 +92,15 @@ chatHelp = [ ("nick",    ("Changes your nickname.", syntaxNick))
            , ("who",     ("Lists the members of the current table.", syntaxWho))
            , ("tables",  ("Lists the tables currently active on the server.", syntaxTables))
            , ("gm",      ("Transfers GM powers to someone else. GM only.", syntaxGM))
+           , ("gmwhisper",("Whispers directly to the GM. Can be used while muted, unlike /whisper.", syntaxGMWhisper))
            , ("whisper", ("Sends a message privately to another user.", syntaxWhisper))
            , ("help",    ("Displays this list, or details on a command.", syntaxHelp))
            , ("quit",    ("Leaves the table you're currently in.", syntaxQuit))
            , ("kick",    ("Kicks a user from the table. GM only.", syntaxKick))
            , ("color",   ("Sets your text color.", syntaxColor))
+           , ("mute",    ("Mutes a dead or otherwise incommunicado character to prevent them from doing anything but talk to the GM. GM-only.", syntaxMute))
+           , ("unmute",  ("Unmutes a previously muted character. GM-only.", syntaxUnmute))
+           , ("muted",   ("Lists the currently muted players.", syntaxMuted))
            ]
 
 rollHelpSummary = ("Dice Commands", "These commands roll dice, publicly, privately, or shared with the GM.")
@@ -165,7 +174,7 @@ cmdHost uid u nick cmd [name,pass] = do
       Just _  -> return $ ResponsePrivate $ "Table " ++ name ++ " already exists."
       Nothing -> do
         chan <- newTChan
-        let t = Table (M.singleton uid (Client chan nick (userColor u) (M.fromList cmds) Nothing (M.fromList vars))) pass uid M.empty
+        let t = Table (M.singleton uid (Client chan nick (userColor u) (M.fromList cmds) False Nothing (M.fromList vars))) pass uid M.empty
         writeTVar (tables dnp) $ M.insert name t ts
         modifyTVar (userTables dnp) $ M.insert uid name
         sendVarUpdate t UpdateAll
@@ -195,7 +204,7 @@ cmdJoin uid u nick cmd [name,pass] = do
               False -> return $ ResponsePrivate $ "Bad password for table " ++ name
               True  -> do
                 chan <- newTChan
-                let t'  = t { clients = M.insert uid (Client chan nick (userColor u) (M.fromList cmds) Nothing (M.fromList vars)) (clients t) }
+                let t'  = t { clients = M.insert uid (Client chan nick (userColor u) (M.fromList cmds) False Nothing (M.fromList vars)) (clients t) }
                     userTable' = M.insert uid name userTable
                     ts' = M.insert name t' ts
                 writeTVar (userTables dnp) userTable'
@@ -440,6 +449,20 @@ cmdWhisper uid u nick cmd (targetName:msgwords) = do
 
 cmdWhisper uid u nick cmd _ = sendPrivate "You must supply a target user and a message."
 
+
+
+syntaxGMWhisper :: String
+syntaxGMWhisper = "Syntax: /gmwhisper <msg> -- sends a message directly to the GM. Can be used while muted, unlike /whisper."
+
+cmdGMWhisper uid u nick cmd msgwords = do
+  let msg = unwords msgwords
+  when (null msg) $ sendPrivate "Empty message; nothing sent."
+  t <- getTable uid
+  when (gm t == uid) $ sendPrivate "You are the GM."
+  sendTo uid (gm t) $ MessageWhisper nick msg
+  return $ ResponsePrivate $ "Whisper to the GM: " ++ msg
+
+
 syntaxTokens :: String
 syntaxTokens = "Syntax: /tokens -- lists all board tokens belonging to you.\n        /tokens all -- lists all board tokens."
 
@@ -599,6 +622,8 @@ cmdThac0 uid u nick cmd [strthac0] = do
   send uid serverName $ nick ++ " rolled against THAC0 " ++ show thac0 ++ " and hit AC " ++ show hitAC ++ " (" ++ show roll ++ ")"
   return ResponseSuccess
 
+cmdThac0 uid u nick cmd _ = return $ ResponsePrivate syntaxThac0
+
 
 syntaxColor :: String
 syntaxColor = "Syntax: /color <color> -- The color is an HTML color format. It can be #rgb, #rrggbb (where r, g and b are hexadecimal values for red, green and blue respectively) or one of the English color constants like red, blue, green black, white. The default text color on DnP is #cccccc, for reference. This command only changes the color of your name."
@@ -621,4 +646,48 @@ cmdColor uid u nick cmd [color] = do
                      ]
          return ()
 
+cmdColor uid u nick cmd _ = return $ ResponsePrivate syntaxColor
+
+
+syntaxMute :: String
+syntaxMute = "Syntax: /mute <nickname> -- mutes the named character."
+
+cmdMute uid u nick cmd [name] = do
+  t <- getTable uid
+  when (gm t /= uid) $ sendPrivate "The /mute command is GM-only."
+  (cid, c) <- getClientByNick uid name
+  when (cid == uid) $ sendPrivate "You cannot mute yourself."
+  when (muted c) $ sendPrivate $ clientNick c ++ " is already muted."
+  updateClient cid $ \c -> Just c { muted = True }
+  send uid serverName $ "The GM has muted " ++ clientNick c ++ "."
+  return ResponseSuccess
+
+cmdMute uid u nick cmd _ = return $ ResponsePrivate syntaxMute
+
+
+
+syntaxUnmute :: String
+syntaxUnmute = "Syntax: /unmute <nickname> -- unmutes the named character."
+
+cmdUnmute uid u nick cmd [name] = do
+  t <- getTable uid
+  when (gm t /= uid) $ sendPrivate "The /unmute command is GM-only."
+  (cid, c) <- getClientByNick uid name
+  when (not $ muted c) $ sendPrivate $ clientNick c ++ " is already unmuted."
+  updateClient cid $ \c -> Just c { muted = False }
+  send uid serverName $ "The GM has unmuted " ++ clientNick c ++ "."
+  return ResponseSuccess
+
+cmdUnmute uid u nick cmd _ = return $ ResponsePrivate syntaxUnmute
+
+
+syntaxMuted ::String
+syntaxMuted = "Syntax: /muted -- lists the players who are currently muted."
+
+cmdMuted uid u nick cmd _ = do
+  t <- getTable uid
+  let ms = filter muted (M.elems $ clients t)
+  case ms of
+    [] -> return $ ResponsePrivate "No players are currently muted."
+    _  -> return $ ResponsePrivate $ "Muted: " ++ intercalate ", " (map clientNick ms)
 

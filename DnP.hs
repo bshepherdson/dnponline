@@ -73,6 +73,7 @@ data Client = Client
     , clientNick :: String
     , color :: String
     , commands :: Map String String
+    , muted :: Bool
     , lastToken :: Maybe String
     , vars :: Map String String
     }

@@ -86,7 +86,13 @@ runCommand uid u nick ('/':msg) prevcmds = do
   when (not . null . filter (==cmd) $ prevcmds) $ sendPrivate "Loop detected. Illegal command."
   let mf = M.lookup cmd commandMap
   case mf of
-    Just f  -> f uid u nick cmd args
+    Just f  -> do
+      mc <- getClientById uid
+      case fmap muted mc of
+        Nothing    -> f uid u nick cmd args -- happens when you're not in a table, and you can't be muted then.
+        Just False -> f uid u nick cmd args
+        Just True  | null (filter (==cmd) mutedWhitelist) -> return $ ResponsePrivate $ "The command " ++ cmd ++ " is not allowed while muted."
+                   | otherwise                            -> f uid u nick cmd args
     Nothing -> do 
       -- retrieve the user's saved commands from the DB
       mc <- getClientById uid
@@ -94,8 +100,15 @@ runCommand uid u nick ('/':msg) prevcmds = do
         Nothing    -> return $ ResponsePrivate $ "Unknown command: '" ++ cmd ++ "'"
         Just value -> runCommand uid u nick value (cmd:prevcmds)
 
-runCommand uid u nick msg _ = send uid nick msg
+runCommand uid u nick msg _ = do
+  mc <- getClientById uid
+  case fmap muted mc of
+    Just True -> return $ ResponsePrivate "You are currently muted and cannot speak."
+    _         -> send uid nick msg
 
+
+-- these are the commands it's legal to use while muted. it should be commands that reach the GM only, or commands that only respond privately.
+mutedWhitelist = ["gmwhisper", "gmw", "quit", "proll", "pr", "gmroll", "gmr", "define", "undef", "who", "tables", "tokens", "help", "muted"]
 
 
 getTableR :: Handler RepHtml
