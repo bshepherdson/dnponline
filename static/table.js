@@ -177,7 +177,7 @@ var vartables = {};
 Vartable = function(nick, vars) {
     this.nick = nick;
     this.vars = vars;
-    this.visible = false;
+    this.visible = true;
     this.touched = true;
 }
 
