@@ -6,18 +6,29 @@
         \^{gridWidget}
 <center>
     <form id="chatform">
-        <div id="chatcontainer">
-            <div .bordernormal id="chattextarea">
-            <img id="chatscrolllock" src="/static/images/blue.png">
-            <br>
-            <p .fullwidth>
-                <input .fullwidth id="chatmessage" type="text" maxlength="1000">
-            <p>
-                <input type="button" id="d4button"  value="d4">
-                <input type="button" id="d6button"  value="d6">
-                <input type="button" id="d8button"  value="d8">
-                <input type="button" id="d10button" value="d10">
-                <input type="button" id="d12button" value="d12">
-                <input type="button" id="d20button" value="d20">
-                <input type="button" id="d100button"  value="d%">
-<div id="varstable" align="center">
+        <div>
+            <div .floatRight>
+                <h3>Variables</h3>
+                <p>
+                    <a href="javascript:expandAllVars()">Show
+                    &nbsp;or&nbsp;
+                    <a href="javascript:collapseAllVars()">Hide
+                    &nbsp;all
+                <div id="varstable">
+            <div id="chatcontainer">
+                <div .bordernormal id="chattextarea">
+                <img id="chatscrolllock" src="/static/images/blue.png">
+                <br>
+                <p .fullwidth>
+                    <input .fullwidth id="chatmessage" type="text" tabindex=1 maxlength="1000">
+                <p>
+                    <input type="button" id="d2button"  value="d2">
+                    <input type="button" id="d3button"  value="d3">
+                    <input type="button" id="d4button"  value="d4">
+                    <input type="button" id="d6button"  value="d6">
+                    <input type="button" id="d8button"  value="d8">
+                    <input type="button" id="d10button" value="d10">
+                    <input type="button" id="d12button" value="d12">
+                    <input type="button" id="d20button" value="d20">
+                    <input type="button" id="d100button"  value="d%">
+                <div id="usercommands">

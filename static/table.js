@@ -12,6 +12,7 @@ $(document).ready(function () {
             chatHistory[i] = oldTemp;
             oldTemp = newTemp;
         }
+        chatHistory[i] = oldTemp;
 
         // and clear the field
         $("#chatmessage").attr("value", "");
@@ -35,15 +36,21 @@ $(document).ready(function () {
     // attach the click() event to all the td cells
     $("td.grid").click(clickHandler);
 
+    $("#d2button").click(rollDice(2));
+    $("#d3button").click(rollDice(3));
     $("#d4button").click(rollDice(4));
     $("#d6button").click(rollDice(6));
     $("#d8button").click(rollDice(8));
     $("#d10button").click(rollDice(10));
     $("#d12button").click(rollDice(12));
     $("#d20button").click(rollDice(20));
-    $("#d100button").click(rollDice('%'));
+    $("#d100button").click(rollDice(100));
 
     $("#chatscrolllock").click(scrollLock);
+
+    window.onbeforeunload = function () {
+        return "Are you sure you want to leave the page?";
+    }
 
     checkIn();
 });
@@ -52,12 +59,11 @@ var needsToCheckIn = false;
 var waitBeforeCheckIn = false;
 
 var mapTokens = [];
-var userVars  = [];
 
 function send(msg) {
     $.ajax({ type: 'POST', url: "/say", data: { message: msg }, success: function(o) {
         if(o.status == "private") {
-            display("*** " + o.message);
+            display("<span class=\"private\">*** " + o.message + "</span>");
         }
     } });
 }
@@ -67,13 +73,24 @@ function checkIn () {
     $.ajax({ dataType: "json", url: "/check", data: { }, cache: false,
     success: function(data,textStatus,xml) {
         if(data.type == "chat") {
-            display(data.sender + ": " + data.content);
+            var color = getColor(data.sender);
+            display("<span style=\"color: " + color + "\">"+data.sender + ":</span> " + data.content);
         } else if(data.type == "board") {
             updateMap(data.tokens);
         } else if(data.type == "whisper") {
-            display("Whisper from " + data.sender + ": " + data.content);
+            var color = getColor(data.sender);
+            display("<span class=\"whisper\">Whisper from <span style=\"color: " + color + "\">" + data.sender + ":</span> " + data.content + "</span>");
         } else if(data.type == "vars") {
             updateVars(data.vars);
+        } else if(data.type == "junk") {
+            // do nothing
+        } else if(data.type == "colors") {
+            userColors = {};
+            for(var i = 0; i < data.colors.length; i++) {
+                userColors[data.colors[i][0]] = data.colors[i][1];
+            }
+        } else if(data.type == "commands") {
+            updateCommands(data.commands); 
         }
     }, 
     error: function() {
@@ -84,10 +101,52 @@ function checkIn () {
     }});
 }
 
+var userColors = {};
+function getColor (sender) {
+    if(userColors && userColors[sender]){
+        return userColors[sender];
+    } else {
+        return "#cccccc";
+    }
+}
+
+var userCommands = {};
+
+function updateCommands(cmds) {
+    userCommands = {};
+    for(var i = 0; i < cmds.length; i++) {
+        userCommands[cmds[i][0]] = cmds[i][1];
+    }
+
+    cmdsHtml = "";
+    var names = Object.keys(userCommands);
+    if(names) {
+        for(var i = 0; i < names.length; i++) {
+            cmdsHtml += "<input type='button' onclick='sendUserCommand(\"" + names[i] + "\")' value=\"" + names[i] + "\"> ";
+        }
+    }
+
+    $("#usercommands").html(cmdsHtml);
+}
+
+function sendUserCommand(cmd) {
+    if(userCommands && userCommands[cmd]){
+        send(userCommands[cmd]);
+    } else {
+        display("::!:: Couldn't find command " + cmd + ". This shouldn't happen. Please report this bug.");
+    }
+}
+
+var urlRegexWWW = new RegExp("((?!http://)www\.[^ \,\!]*)", "g");
+var urlRegexHTTP = new RegExp("(http://[^ \,\!]*|www\.[^ \,\!]*)", "g");
+
 function display (msg) {
+    // look for URLs and make them into links
+    msg = msg.replace(urlRegexWWW, "http://$1");
+    msg = msg.replace(urlRegexHTTP, "<a href=\"$1\">$1</a>");
+
     var ta = $("#chattextarea");
     ta.html(ta.html() + msg + "<br/>\n");
-    //console.log(ta.scrollTop + "," + ta.height + "," + ta.scrollHeight);
     if(!scrollLocked) {
         ta.scrollTop(100000000);
     } else {
@@ -111,17 +170,84 @@ function updateMap(newTokens) {
     mapTokens = newTokens;
 }
 
-function updateVars(newVars) {
-    var varsHtml = "<table class='vars'><tr class='vars'><td class='vars'>Nick</td><td class='vars'>Variable</td><td class='vars'>Value</td></tr>";
 
-    for(i in newVars){
-        var v = newVars[i];
-        varsHtml += "<tr class='vars'><td class='vars'>" + v.nick + "</td><td class='vars'>" + v.var + "</td><td class='vars'>" + v.value + "</td></tr>";
-        $("#varstable").html(varsHtml);
+
+var vartables = {};
+
+Vartable = function(nick, vars) {
+    this.nick = nick;
+    this.vars = vars;
+    this.visible = false;
+}
+
+
+function updateVars(newVars) {
+    for(var i = 0; i < newVars.length; i++) {
+        if(vartables[newVars[i].nick]) {
+            vartables[newVars[i].nick].vars = newVars[i].vars;
+        } else {
+            vartables[newVars[i].nick] = new Vartable(newVars[i].nick, newVars[i].vars);
+        }
     }
 
-    userVars = newVars;
+    var nicks = Object.keys(vartables);
+    if(nicks) {
+        nicks.sort();
+
+        var varsHtml = "";
+        for(var i = 0; i < nicks.length; i++) {
+            var v = vartables[nicks[i]];
+            varsHtml += "<div class='vars'>";
+            varsHtml += "<h4 class='vars'><a href=\"javascript:toggleVarsTable('"+ v.nick +"')\">" + v.nick + "</a></h4>";
+            varsHtml += "<div class=\"varstable";
+            varsHtml += v.visible ? "" : " hidden";
+            varsHtml += "\" id=\"" + v.nick + "table\">";
+            varsHtml += "<table class=\"vars\">";
+            for(var j = 0; j < v.vars.length; j++) {
+                varsHtml += "<tr class=\"vars\">";
+                varsHtml += "<td class=\"vars\">" + v.vars[j][0] + "</td>";
+                varsHtml += "<td class=\"vars\">" + v.vars[j][1] + "</td>";
+                varsHtml += "</tr>";
+            }
+            varsHtml += "</table></div></div>";
+        }
+
+        $("#varstable").html(varsHtml);
+    }
 }
+
+
+function toggleVarsTable(nick) {
+    if(!vartables[nick]) return;
+
+    if(vartables[nick].visible){
+        $("#"+nick+"table").addClass("hidden");
+        vartables[nick].visible = false;
+    } else {
+        $("#"+nick+"table").removeClass("hidden");
+        vartables[nick].visible = true;
+    }
+}
+
+function collapseAllVars() {
+    expandCollapseAllVars(false, function(v){ v.addClass('hidden'); });
+}
+
+function expandAllVars() {
+    expandCollapseAllVars(true, function(v){ v.removeClass('hidden'); });
+}
+
+function expandCollapseAllVars(visible, f) {
+    nicks = Object.keys(vartables);
+    if(nicks) {
+        for(var i = 0; i < nicks.length; i++) {
+            nicks[i].visible = visible;
+        }
+    }
+
+    f($("div.varstable"));
+}
+
 
 
 var chatHistory = [];
@@ -211,7 +337,7 @@ function toggleGridVisibility() {
 
 function rollDice(n) {
     return function (e) {
-        send("/d"+n);
+        send("/roll d"+n);
     };
 }
 

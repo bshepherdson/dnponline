@@ -27,16 +27,21 @@ gridRows = 15
 -- name by which the server appears in chat messages
 serverName = "::!:" -- will appear as, eg.:  ::!:: oldnick is now known as newnick
 
+maybeTable :: UserId -> Handler (Maybe Table)
+maybeTable uid = do
+  dnp <- getYesod
+  mtid <- liftIO . atomically $ readTVar (userTables dnp) >>= return . M.lookup uid
+  case mtid of
+    Nothing  -> return Nothing
+    Just tid -> do
+      liftIO . atomically $ readTVar (tables dnp) >>= return . M.lookup tid
 
 getTable :: UserId -> Handler Table
 getTable uid = do
-  dnp <- getYesod
-  mtid <- liftIO . atomically $ readTVar (userTables dnp) >>= return . M.lookup uid
-  tid <- case mtid of
-           Nothing  -> invalidArgs ["Not in a table yet"]
-           Just tid -> return tid
-  mtable <- liftIO . atomically $ readTVar (tables dnp) >>= return . M.lookup tid
-  maybe (invalidArgs ["Invalid table ID"]) return mtable
+  mt <- maybeTable uid
+  case mt of
+    Nothing -> invalidArgs ["Not in a table yet"]
+    Just t  -> return t
 
 
 updateTable :: UserId -> (Table -> Maybe Table) -> Handler ()
@@ -79,6 +84,28 @@ sendTo sendId recvId msg = do
 
 data UpdateWhom = UpdateAll | UpdateUser UserId
 
+sendAllUpdates :: Table -> UpdateWhom -> STM ()
+sendAllUpdates t whom = do
+  sendBoardUpdate t whom
+  sendVarUpdate t whom
+  sendColorUpdate t whom
+  sendCommandUpdate t whom
+
+sendCommandUpdate :: Table -> UpdateWhom -> STM ()
+sendCommandUpdate t UpdateAll = mapM_ (sendCommandUpdate t . UpdateUser) $ M.keys (clients t)
+sendCommandUpdate t (UpdateUser uid) = do
+  case M.lookup uid (clients t) of
+    Nothing -> error "can't happen"
+    Just (Client { channel = chan, commands = cmds }) -> writeTChan chan $ MessageCommands (M.assocs cmds)
+
+sendColorUpdate :: Table -> UpdateWhom -> STM ()
+sendColorUpdate t UpdateAll = mapM_ (sendColorUpdate t . UpdateUser) $ M.keys (clients t)
+sendColorUpdate t (UpdateUser uid) = do
+  let colors = map (\c -> (clientNick c, color c)) $ M.elems (clients t)
+  case M.lookup uid (clients t) of
+    Nothing -> error "can't happen"
+    Just (Client { channel = chan }) -> writeTChan chan $ MessageColor colors
+
 sendBoardUpdate :: Table -> UpdateWhom -> STM ()
 sendBoardUpdate t UpdateAll = mapM_ (sendBoardUpdate t . UpdateUser) $ M.keys (clients t)
 sendBoardUpdate t (UpdateUser uid) = do
@@ -88,7 +115,7 @@ sendBoardUpdate t (UpdateUser uid) = do
 
 
 sendVarUpdate :: Table -> UpdateWhom -> STM ()
-sendVarUpdate t whom = sendVarUpdate' t whom . concatMap (\c -> map ((,) (clientNick c)) (M.assocs (vars c))) . M.elems . clients $ t
+sendVarUpdate t whom = sendVarUpdate' t whom . map (\c -> (clientNick c, M.assocs (vars c))) . M.elems . clients $ t
   where sendVarUpdate' t UpdateAll allvars = mapM_ (\uid -> sendVarUpdate' t (UpdateUser uid) allvars) $ M.keys (clients t)
         sendVarUpdate' t (UpdateUser uid) allvars = do
           case M.lookup uid (clients t) of
@@ -164,8 +191,10 @@ getClientByNick uid target = do
 
 getClientById :: UserId -> Handler (Maybe Client)
 getClientById uid = do
-  t <- getTable uid
-  return $ M.lookup uid (clients t)
+  mt <- maybeTable uid
+  case mt of
+    Nothing -> return Nothing
+    Just t  -> return $ M.lookup uid (clients t)
 
 
 getTokenAt :: Int -> Int -> Table -> Maybe Token

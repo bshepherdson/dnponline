@@ -21,7 +21,9 @@ import Control.Concurrent.STM.TChan
 
 import System.Directory
 import System.Random
-import Text.ParserCombinators.Parsec
+import Text.ParserCombinators.Parsec hiding (string, count)
+import qualified Text.ParserCombinators.Parsec as P
+import Text.ParserCombinators.Parsec.Expr
 
 import Data.List hiding (insert)
 
@@ -36,11 +38,17 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("who",  cmdWho)
                         , ("tables", cmdTables)
                         , ("gm",     cmdGM)
+                        , ("gmwhisper", cmdGMWhisper)
+                        , ("gmw",     cmdGMWhisper)
                         , ("whisper", cmdWhisper)
                         , ("w",       cmdWhisper)
                         , ("help",    cmdHelp)
                         , ("quit",    cmdQuit)
                         , ("kick",    cmdKick)
+                        , ("color",   cmdColor)
+                        , ("mute",    cmdMute)
+                        , ("unmute",  cmdUnmute)
+                        , ("muted",   cmdMuted)
 
                         -- dice commands
                         , ("roll", cmdRoll)
@@ -59,6 +67,8 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("d100", cmdRoll)
                         , ("d%",   cmdRoll)
                         , ("thac0", cmdThac0)
+                        , ("math", cmdMath)
+                        , ("pmath", cmdMath)
 
                         -- board commands
                         , ("place",  cmdPlace)
@@ -85,10 +95,15 @@ chatHelp = [ ("nick",    ("Changes your nickname.", syntaxNick))
            , ("who",     ("Lists the members of the current table.", syntaxWho))
            , ("tables",  ("Lists the tables currently active on the server.", syntaxTables))
            , ("gm",      ("Transfers GM powers to someone else. GM only.", syntaxGM))
+           , ("gmwhisper",("Whispers directly to the GM. Can be used while muted, unlike /whisper.", syntaxGMWhisper))
            , ("whisper", ("Sends a message privately to another user.", syntaxWhisper))
            , ("help",    ("Displays this list, or details on a command.", syntaxHelp))
            , ("quit",    ("Leaves the table you're currently in.", syntaxQuit))
            , ("kick",    ("Kicks a user from the table. GM only.", syntaxKick))
+           , ("color",   ("Sets your text color.", syntaxColor))
+           , ("mute",    ("Mutes a dead or otherwise incommunicado character to prevent them from doing anything but talk to the GM. GM-only.", syntaxMute))
+           , ("unmute",  ("Unmutes a previously muted character. GM-only.", syntaxUnmute))
+           , ("muted",   ("Lists the currently muted players.", syntaxMuted))
            ]
 
 rollHelpSummary = ("Dice Commands", "These commands roll dice, publicly, privately, or shared with the GM.")
@@ -105,6 +120,8 @@ rollHelp = [ ("roll",    ("Rolls dice and shows the result to everyone.", syntax
            , ("d100",    ("Shortcut to roll 1d100.", "Syntax: /d100"))
            , ("d%",      ("Shortcut to roll d%.", "Syntax: /d%"))
            , ("thac0",   ("Make and attack roll against your THAC0 (used in AD&D 2nd ed.)", syntaxThac0))
+           , ("math",    ("Solve a math expression.", syntaxMath))
+           , ("pmath",   ("Solve a math expression, and report the result privately.", syntaxMath))
            ]
 
 gridHelpSummary = ("Grid Commands", "These commands manipulate the combat grid: placing and moving tokens.")
@@ -155,16 +172,19 @@ cmdHost :: Cmd
 cmdHost uid u nick cmd [name,pass] = do
   dnp <- getYesod
   vars <- fmap (map (\(_, Var _ var val) -> (var,val))) . runDB $ selectList [VarUserEq uid] [] 0 0
+  cmds <- fmap (map (\(_, Command _ name usrcmd) -> (name, usrcmd))) . runDB $ selectList [CommandUserEq uid] [] 0 0
   liftIO . atomically $ do
     ts <- readTVar $ tables dnp
     case M.lookup name ts of
       Just _  -> return $ ResponsePrivate $ "Table " ++ name ++ " already exists."
       Nothing -> do
         chan <- newTChan
-        let t = Table (M.singleton uid (Client chan nick Nothing (M.fromList vars))) pass uid M.empty
+        let t = Table (M.singleton uid (Client chan nick (userColor u) (M.fromList cmds) False Nothing (M.fromList vars))) pass uid M.empty
         writeTVar (tables dnp) $ M.insert name t ts
         modifyTVar (userTables dnp) $ M.insert uid name
         sendVarUpdate t UpdateAll
+        sendColorUpdate t UpdateAll
+        sendCommandUpdate t UpdateAll
         return $ ResponsePrivate $ "Table " ++ name ++ " successfully created."
   
 
@@ -175,6 +195,7 @@ cmdJoin :: Cmd
 cmdJoin uid u nick cmd [name,pass] = do
   dnp <- getYesod
   vars <- fmap (map (\(_, Var _ var val) -> (var,val))) . runDB $ selectList [VarUserEq uid] [] 0 0
+  cmds <- fmap (map (\(_, Command _ name usrcmd) -> (name, usrcmd))) . runDB $ selectList [CommandUserEq uid] [] 0 0
   liftIO . atomically $ do
     userTable <- readTVar $ userTables dnp
     ts <- readTVar $ tables dnp
@@ -188,7 +209,7 @@ cmdJoin uid u nick cmd [name,pass] = do
               False -> return $ ResponsePrivate $ "Bad password for table " ++ name
               True  -> do
                 chan <- newTChan
-                let t'  = t { clients = M.insert uid (Client chan nick Nothing (M.fromList vars)) (clients t) }
+                let t'  = t { clients = M.insert uid (Client chan nick (userColor u) (M.fromList cmds) False Nothing (M.fromList vars)) (clients t) }
                     userTable' = M.insert uid name userTable
                     ts' = M.insert name t' ts
                 writeTVar (userTables dnp) userTable'
@@ -196,6 +217,8 @@ cmdJoin uid u nick cmd [name,pass] = do
                 rawSend t serverName $ nick ++ " has joined the table." -- deliberately t, sends to everyone else, not the new client
                 sendBoardUpdate t' (UpdateUser uid)
                 sendVarUpdate   t' UpdateAll
+                sendColorUpdate t' UpdateAll
+                sendCommandUpdate t' (UpdateUser uid)
                 return $ ResponsePrivate $ "Successfully joined table " ++ name
 cmdJoin uid u nick cmd _ = return $ ResponsePrivate $ syntaxJoin
 
@@ -241,6 +264,8 @@ cmdRoll uid u nick cmd [x]  = do
       Left _ -> return $ ResponsePrivate syntaxRoll
       Right (a,b,c) | a <= 0 -> return $ ResponsePrivate "Number of dice cannot be less than 1."
                     | b <= 0 -> return $ ResponsePrivate "Size of dice cannot be less than 1."
+                    | a > 1000 -> return $ ResponsePrivate "Number of dice cannot exceed 1000."
+                    | b > 1000 -> return $ ResponsePrivate "Size of dice cannot exceed 1000."
                     | otherwise -> do
                         rolls <- replicateM a $ liftIO (randomRIO (1,b))
                         let total = sum' rolls + c
@@ -429,6 +454,20 @@ cmdWhisper uid u nick cmd (targetName:msgwords) = do
 
 cmdWhisper uid u nick cmd _ = sendPrivate "You must supply a target user and a message."
 
+
+
+syntaxGMWhisper :: String
+syntaxGMWhisper = "Syntax: /gmwhisper <msg> -- sends a message directly to the GM. Can be used while muted, unlike /whisper."
+
+cmdGMWhisper uid u nick cmd msgwords = do
+  let msg = unwords msgwords
+  when (null msg) $ sendPrivate "Empty message; nothing sent."
+  t <- getTable uid
+  when (gm t == uid) $ sendPrivate "You are the GM."
+  sendTo uid (gm t) $ MessageWhisper nick msg
+  return $ ResponsePrivate $ "Whisper to the GM: " ++ msg
+
+
 syntaxTokens :: String
 syntaxTokens = "Syntax: /tokens -- lists all board tokens belonging to you.\n        /tokens all -- lists all board tokens."
 
@@ -471,20 +510,25 @@ cmdDefine uid u nick cmd (name:newcmds) = do
   runDB $ do
     deleteWhere [CommandUserEq uid, CommandNameEq name]
     insert $ Command uid name newcmd
+  updateClient uid $ \c -> Just c { commands = M.insert name newcmd (commands c) }
+  t <- getTable uid
+  liftIO . atomically $ sendCommandUpdate t (UpdateUser uid)
   return $ ResponsePrivate $ "New command /"++name++" successfully stored."
 
 
 syntaxUndef :: String
 syntaxUndef = "Syntax: /undef <name> -- Undefines a previously defined command."
 
-
 cmdUndef uid u nick cmd [name] = do
-  cmdList <- runDB $ selectList [CommandUserEq uid, CommandNameEq name] [] 0 0
-  case cmdList of
-    [] -> return $ ResponsePrivate $ "No user-defined command named '" ++ name ++ "' found."
-    [x] -> do runDB $ deleteWhere [CommandUserEq uid, CommandNameEq name]
-              return $ ResponsePrivate $ "Command /"++name++" removed."
-    _   -> return $ ResponsePrivate $ "Multiple user-defined commands named '" ++ name ++ "' were found. This should be impossible, there has been a bug. Please notify the developers."
+  mc <- fmap (fmap (M.lookup name . commands)) $ getClientById uid
+  case mc of
+    Nothing -> return $ ResponsePrivate $ "No user-defined command named '" ++ name ++ "' found."
+    Just c  -> do 
+      updateClient uid $ \c -> Just c { commands = M.delete name (commands c) }
+      runDB $ deleteWhere [CommandUserEq uid, CommandNameEq name]
+      t <- getTable uid
+      liftIO . atomically $ sendCommandUpdate t (UpdateUser uid)
+      return $ ResponsePrivate $ "Command /"++name++" removed."
 
 cmdUndef uid u nick cmd _ = return $ ResponsePrivate syntaxUndef
 
@@ -583,4 +627,139 @@ cmdThac0 uid u nick cmd [strthac0] = do
   send uid serverName $ nick ++ " rolled against THAC0 " ++ show thac0 ++ " and hit AC " ++ show hitAC ++ " (" ++ show roll ++ ")"
   return ResponseSuccess
 
+cmdThac0 uid u nick cmd _ = return $ ResponsePrivate syntaxThac0
+
+
+syntaxColor :: String
+syntaxColor = "Syntax: /color <color> -- The color is an HTML color format. It can be #rgb, #rrggbb (where r, g and b are hexadecimal values for red, green and blue respectively) or one of the English color constants like red, blue, green black, white. The default text color on DnP is #cccccc, for reference. This command only changes the color of your name."
+
+cmdColor uid u nick cmd [color] = do
+  case parse parseColor "" color of
+    Left  _ -> sendPrivate "Illegal color format. See /help color."
+    Right _ -> return ()
+  runDB $ update uid [UserColor color]
+  updateClient uid $ \c -> Just c { color = color }
+  t <- getTable uid
+  liftIO . atomically $ sendColorUpdate t UpdateAll -- so the name refreshes for everyone.
+  return $ ResponsePrivate $ "Color successfully changed to " ++ color ++ "."
+ where parseColor = do
+         a <- choice [ P.char '#' >> P.count 6 hexDigit
+                     , P.char '#' >> P.count 3 hexDigit
+                     , P.string "aqua" , P.string "black" , P.string "blue" , P.string "fuchsia" , P.string "gray" , P.string "grey"
+                     , P.string "green" , P.string "lime" , P.string "maroon" , P.string "navy" , P.string "olive" , P.string "purple" , P.string "red"
+                     , P.string "silver" , P.string "teal" , P.string "white" , P.string "yellow"
+                     ]
+         return ()
+
+cmdColor uid u nick cmd _ = return $ ResponsePrivate syntaxColor
+
+
+syntaxMute :: String
+syntaxMute = "Syntax: /mute <nickname> -- mutes the named character."
+
+cmdMute uid u nick cmd [name] = do
+  t <- getTable uid
+  when (gm t /= uid) $ sendPrivate "The /mute command is GM-only."
+  (cid, c) <- getClientByNick uid name
+  when (cid == uid) $ sendPrivate "You cannot mute yourself."
+  when (muted c) $ sendPrivate $ clientNick c ++ " is already muted."
+  updateClient cid $ \c -> Just c { muted = True }
+  send uid serverName $ "The GM has muted " ++ clientNick c ++ "."
+  return ResponseSuccess
+
+cmdMute uid u nick cmd _ = return $ ResponsePrivate syntaxMute
+
+
+
+syntaxUnmute :: String
+syntaxUnmute = "Syntax: /unmute <nickname> -- unmutes the named character."
+
+cmdUnmute uid u nick cmd [name] = do
+  t <- getTable uid
+  when (gm t /= uid) $ sendPrivate "The /unmute command is GM-only."
+  (cid, c) <- getClientByNick uid name
+  when (not $ muted c) $ sendPrivate $ clientNick c ++ " is already unmuted."
+  updateClient cid $ \c -> Just c { muted = False }
+  send uid serverName $ "The GM has unmuted " ++ clientNick c ++ "."
+  return ResponseSuccess
+
+cmdUnmute uid u nick cmd _ = return $ ResponsePrivate syntaxUnmute
+
+
+syntaxMuted ::String
+syntaxMuted = "Syntax: /muted -- lists the players who are currently muted."
+
+cmdMuted uid u nick cmd _ = do
+  t <- getTable uid
+  let ms = filter muted (M.elems $ clients t)
+  case ms of
+    [] -> return $ ResponsePrivate "No players are currently muted."
+    _  -> return $ ResponsePrivate $ "Muted: " ++ intercalate ", " (map clientNick ms)
+
+
+syntaxMath :: String
+syntaxMath = "Syntax: /math <expression> -- Solves a math expression. Numbers are limited to +/- 1 billion. Parentheses are supported, and the supported operations are + - * and /. Division can result in a fraction, but the input numbers must be integers.\nSyntax: /pmath <expression> -- Same as /math, but reports to you privately."
+
+
+data Expr = Parens Expr
+          | Lit Double
+          | MulOp Char Expr Expr
+          | AddOp Char Expr Expr
+          | Negate Expr
+  deriving (Show)
+
+cmdMath uid u nick cmd [] = return $ ResponsePrivate syntaxMath
+cmdMath uid u nick cmd exprwords = do
+  let expr = unwords exprwords
+  let etree = parse parseExpr "" expr
+  case etree of
+    Left _ -> sendPrivate "Syntax error in expression"
+    Right tree -> do
+      when (not $ checkLits tree) $ sendPrivate "Constants are limited to +/- 1 billion"
+      let result = eval tree
+      case result of
+        Nothing -> return $ ResponsePrivate "Division by 0"
+        Just n  -> case cmd of
+                     "pmath" -> return $ ResponsePrivate $ expr ++ " = " ++ show n
+                     "math"  -> do
+                       send uid serverName $ nick ++ " computes " ++ expr ++ " = " ++ show n
+                       return ResponseSuccess
+
+ where parseExpr = buildExpressionParser table term
+       term  = choice [ fmap Parens $ parens parseExpr, fmap (Lit . read) natural ]
+       table = [ [prefix "-" Negate, prefix "+" id]
+               , [binary "*" (MulOp '*') AssocLeft, binary "/" (MulOp '/') AssocLeft]
+               , [binary "+" (AddOp '+') AssocLeft, binary "-" (AddOp '-') AssocLeft]
+               ]
+       binary :: String -> (Expr -> Expr -> Expr) -> Assoc -> Operator Char st Expr
+       binary n f a = Infix  (P.string n >> spaces >> return f) a
+       prefix n f   = Prefix (P.string n >> spaces >> return f)
+       natural = many1 digit >>= \n -> spaces >> return n
+       parens  = between (char '(' >> spaces) (char ')' >> spaces)
+
+
+checkLits :: Expr -> Bool
+checkLits (Lit x) | x < -1000000000 || x > 1000000000 = False
+                  | otherwise = True
+checkLits (Parens e) = checkLits e
+checkLits (MulOp _ e f) = checkLits e && checkLits f
+checkLits (AddOp _ e f) = checkLits e && checkLits f
+checkLits (Negate e) = checkLits e
+
+
+eval :: Expr -> Maybe Double
+eval (Lit x) = return x
+eval (Parens e) = eval e
+eval (MulOp op e f) = do
+  a <- eval e
+  b <- eval f
+  when (op == '/' && b == 0) $ fail "division by 0"
+  let o = case op of {'/' -> (/); '*' -> (*)}
+  return $ a `o` b
+eval (AddOp op e f) = do
+  a <- eval e
+  b <- eval f
+  let o = case op of {'+' -> (+); '-' -> (-)}
+  return $ a `o` b
+eval (Negate e) = fmap negate $ eval e
 

@@ -1,3 +1,6 @@
+a
+    color: #8888FF
+    visited: #8888FF
 h1
     text-align: center
     color: #CCCCCC
@@ -28,6 +31,7 @@ input#chatmessage
     font-family: Helvetica,Arial,Helmet,Freesans,sans-serif
     color: #CCCCCC
 table.grid
+    background-image:url('/images/map.jpg');
     text-align: center
     border: 1px
     padding: 0px
@@ -43,16 +47,42 @@ td.grid
 img.grid
     padding: 0px
     margin: 0px
+div.vars
+    width: 200px
+h4.vars
+    margin-left: auto
+    margin-right: auto
+    border: 1px
+    border-style: solid
+    border-color: #CCCCCC
+    width: 100%
+    margin-top: 0px
+    margin-bottom: 0px
+
+    overflow: auto
+
+    background-color: #CCCCCC
+    color: black
+    h4.vars a
+        color: black
+        visited: black
+        text-decoration: none
+div.varstable
+    margin-left: auto
+    margin-right:auto
+    width: 100%
 table.vars
     border: 1px
     padding: 0px
     border-style: solid
     border-color: #CCCCCC
+    width: 100%
 td.vars
     border: 1px
     padding: 0px
     border-style: solid
     border-color: #CCCCCC
+    overflow: auto
 td.gridhighlight
     border-color: #FF0000
     background-color: #CC0000
@@ -66,3 +96,9 @@ td.gridhighlight
     border-color: #FF0000
 .bordernormal
     border-color: #CCCCCC
+.floatRight
+    float: right
+.whisper
+    color: #33FF33
+.private
+    color: #FF3333

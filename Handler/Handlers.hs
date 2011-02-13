@@ -41,26 +41,24 @@ getCheckInR = do
   msg <- liftIO . atomically $ readTChan chan
   case msg of
     MessageChat s c -> do
-      --liftIO $ putStrLn $ "Responding to " ++ show uid ++ " with " ++ show (s,c)
       jsonToRepJson $ zipJson ["type", "sender", "content"] ["chat",s,c]
     MessageWhisper s c -> do
-      --liftIO $ putStrLn $ "Whispering to " ++ show uid ++ " with " ++ show (s,c)
       jsonToRepJson $ zipJson ["type", "sender", "content"] ["whisper",s,c]
     MessageBoard ts -> do
-      --liftIO $ putStrLn $ "Sending Tokens to " ++ show uid
       jsonToRepJson $ jsonMap [("type", jsonScalar "board"), 
                                ("tokens", jsonList $ map (\t -> zipJson ["x","y","image","name"] 
                                                                         $ map ($ t) [show.tokenX, show.tokenY, file, tokenName]) 
                                                          ts
                                 )]
     MessageVars vs -> do
-      let sorted = sortBy (comparing fst) . sortBy (comparing (fst.snd)) $ vs  -- sorted by nick and then by var name
-      --liftIO $ putStrLn $ "Sending vars to " ++ show uid
       jsonToRepJson $ jsonMap [("type", jsonScalar "vars"),
-                               ("vars", jsonList $ map (\v -> zipJson ["nick","var","value"]
-                                                                      $ map ($ v) [fst, fst.snd, snd.snd])
-                                                       vs
-                               )]
+                               ("vars", jsonList $ map (\(c,cvs) -> jsonMap [("nick", jsonScalar c), ("vars", jsonPairs cvs)]) vs)]
+    MessageJunk -> jsonToRepJson $ jsonMap [("type", jsonScalar "junk")]
+    MessageColor cs -> jsonToRepJson $ jsonMap [("type", jsonScalar "colors"), ("colors", jsonPairs cs)]
+    MessageCommands cmds -> jsonToRepJson $ jsonMap [("type", jsonScalar "commands"), ("commands", jsonPairs cmds)]
+
+
+jsonPairs xs = jsonList $ map (\(x,y) -> jsonList [jsonScalar x, jsonScalar y]) xs
 
 
 postSayR :: Handler RepJson
@@ -88,25 +86,50 @@ runCommand uid u nick ('/':msg) prevcmds = do
   when (not . null . filter (==cmd) $ prevcmds) $ sendPrivate "Loop detected. Illegal command."
   let mf = M.lookup cmd commandMap
   case mf of
-    Just f  -> f uid u nick cmd args
+    Just f  -> do
+      mc <- getClientById uid
+      case fmap muted mc of
+        Nothing    -> f uid u nick cmd args -- happens when you're not in a table, and you can't be muted then.
+        Just False -> f uid u nick cmd args
+        Just True  | null (filter (==cmd) mutedWhitelist) -> return $ ResponsePrivate $ "The command " ++ cmd ++ " is not allowed while muted."
+                   | otherwise                            -> f uid u nick cmd args
     Nothing -> do 
       -- retrieve the user's saved commands from the DB
-      cmds <- runDB $ selectList [CommandUserEq uid, CommandNameEq cmd] [] 0 0
-      case cmds of
-        []  -> return $ ResponsePrivate $ "Unknown command: '" ++ cmd ++ "'"
-        [(_,Command _ _ usrcmd)] -> runCommand uid u nick usrcmd (cmd:prevcmds)
-        _   -> return $ ResponsePrivate $ "ERROR: Multiple possible commands returned. Can't happen."
+      mc <- getClientById uid
+      case join $ fmap (M.lookup cmd . commands) mc of
+        Nothing    -> return $ ResponsePrivate $ "Unknown command: '" ++ cmd ++ "'"
+        Just value -> runCommand uid u nick value (cmd:prevcmds)
 
-runCommand uid u nick msg _ = send uid nick msg
+runCommand uid u nick msg _ = do
+  mc <- getClientById uid
+  case fmap muted mc of
+    Just True -> return $ ResponsePrivate "You are currently muted and cannot speak."
+    _         -> send uid nick msg
 
+
+-- these are the commands it's legal to use while muted. it should be commands that reach the GM only, or commands that only respond privately.
+mutedWhitelist = ["gmwhisper", "gmw", "quit", "proll", "pr", "gmroll", "gmr", "define", "undef", "who", "tables", "tokens", "help", "muted"]
 
 
 getTableR :: Handler RepHtml
-getTableR = defaultLayout $ do
-  setTitle "Dice and Paper Online - Table"
-  addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
-  addScript $ StaticR $ StaticRoute ["table.js"] []
-  $(widgetFile "table")
+getTableR = do
+  (uid, u) <- requireAuth
+  mc <- getClientById uid
+  case mc of
+    Nothing -> return ()
+    Just c  -> do
+      t <- getTable uid
+      liftIO . atomically $ do
+        sequence_ . replicate 3 $ writeTChan (channel c) MessageJunk
+        sendVarUpdate t UpdateAll
+        sendBoardUpdate t (UpdateUser uid)
+        sendColorUpdate t UpdateAll
+        sendCommandUpdate t (UpdateUser uid)
+  defaultLayout $ do
+    setTitle "Dice and Paper Online - Table"
+    addScriptRemote "http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js"
+    addScript $ StaticR $ StaticRoute ["table.js"] []
+    $(widgetFile "table")
 
 
 
