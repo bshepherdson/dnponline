@@ -23,6 +23,7 @@ import System.Directory
 import System.Random
 import Text.ParserCombinators.Parsec hiding (string, count)
 import qualified Text.ParserCombinators.Parsec as P
+import Text.ParserCombinators.Parsec.Expr
 
 import Data.List hiding (insert)
 
@@ -66,6 +67,8 @@ commandMap = M.fromList [ ("nick", cmdNick)
                         , ("d100", cmdRoll)
                         , ("d%",   cmdRoll)
                         , ("thac0", cmdThac0)
+                        , ("math", cmdMath)
+                        , ("pmath", cmdMath)
 
                         -- board commands
                         , ("place",  cmdPlace)
@@ -117,6 +120,8 @@ rollHelp = [ ("roll",    ("Rolls dice and shows the result to everyone.", syntax
            , ("d100",    ("Shortcut to roll 1d100.", "Syntax: /d100"))
            , ("d%",      ("Shortcut to roll d%.", "Syntax: /d%"))
            , ("thac0",   ("Make and attack roll against your THAC0 (used in AD&D 2nd ed.)", syntaxThac0))
+           , ("math",    ("Solve a math expression.", syntaxMath))
+           , ("pmath",   ("Solve a math expression, and report the result privately.", syntaxMath))
            ]
 
 gridHelpSummary = ("Grid Commands", "These commands manipulate the combat grid: placing and moving tokens.")
@@ -690,4 +695,71 @@ cmdMuted uid u nick cmd _ = do
   case ms of
     [] -> return $ ResponsePrivate "No players are currently muted."
     _  -> return $ ResponsePrivate $ "Muted: " ++ intercalate ", " (map clientNick ms)
+
+
+syntaxMath :: String
+syntaxMath = "Syntax: /math <expression> -- Solves a math expression. Numbers are limited to +/- 1 billion. Parentheses are supported, and the supported operations are + - * and /. Division can result in a fraction, but the input numbers must be integers.\nSyntax: /pmath <expression> -- Same as /math, but reports to you privately."
+
+
+data Expr = Parens Expr
+          | Lit Double
+          | MulOp Char Expr Expr
+          | AddOp Char Expr Expr
+          | Negate Expr
+  deriving (Show)
+
+cmdMath uid u nick cmd [] = return $ ResponsePrivate syntaxMath
+cmdMath uid u nick cmd exprwords = do
+  let expr = unwords exprwords
+  let etree = parse parseExpr "" expr
+  case etree of
+    Left _ -> sendPrivate "Syntax error in expression"
+    Right tree -> do
+      when (not $ checkLits tree) $ sendPrivate "Constants are limited to +/- 1 billion"
+      let result = eval tree
+      case result of
+        Nothing -> return $ ResponsePrivate "Division by 0"
+        Just n  -> case cmd of
+                     "pmath" -> return $ ResponsePrivate $ expr ++ " = " ++ show n
+                     "math"  -> do
+                       send uid serverName $ nick ++ " computes " ++ expr ++ " = " ++ show n
+                       return ResponseSuccess
+
+ where parseExpr = buildExpressionParser table term
+       term  = choice [ fmap Parens $ parens parseExpr, fmap (Lit . read) natural ]
+       table = [ [prefix "-" Negate, prefix "+" id]
+               , [binary "*" (MulOp '*') AssocLeft, binary "/" (MulOp '/') AssocLeft]
+               , [binary "+" (AddOp '+') AssocLeft, binary "-" (AddOp '-') AssocLeft]
+               ]
+       binary :: String -> (Expr -> Expr -> Expr) -> Assoc -> Operator Char st Expr
+       binary n f a = Infix  (P.string n >> spaces >> return f) a
+       prefix n f   = Prefix (P.string n >> spaces >> return f)
+       natural = many1 digit >>= \n -> spaces >> return n
+       parens  = between (char '(' >> spaces) (char ')' >> spaces)
+
+
+checkLits :: Expr -> Bool
+checkLits (Lit x) | x < -1000000000 || x > 1000000000 = False
+                  | otherwise = True
+checkLits (Parens e) = checkLits e
+checkLits (MulOp _ e f) = checkLits e && checkLits f
+checkLits (AddOp _ e f) = checkLits e && checkLits f
+checkLits (Negate e) = checkLits e
+
+
+eval :: Expr -> Maybe Double
+eval (Lit x) = return x
+eval (Parens e) = eval e
+eval (MulOp op e f) = do
+  a <- eval e
+  b <- eval f
+  when (op == '/' && b == 0) $ fail "division by 0"
+  let o = case op of {'/' -> (/); '*' -> (*)}
+  return $ a `o` b
+eval (AddOp op e f) = do
+  a <- eval e
+  b <- eval f
+  let o = case op of {'+' -> (+); '-' -> (-)}
+  return $ a `o` b
+eval (Negate e) = fmap negate $ eval e
 
