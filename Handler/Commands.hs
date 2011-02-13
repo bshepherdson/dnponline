@@ -596,7 +596,10 @@ syntaxQuit = "Syntax: /quit"
 
 cmdQuit uid u nick cmd _ = do
   send uid serverName $ nick ++ " has quit."
-  removeClient uid
+  mt <- removeClient uid
+  case mt of
+    Nothing -> return ()
+    Just t  -> liftIO . atomically $ sendAllUpdates t UpdateAll
   return ResponseSuccess
   
 
@@ -608,7 +611,10 @@ cmdKick uid u nick cmd [name] = do
   when (gm t /= uid) $ sendPrivate "The /kick command is GM-only."
   (cid, c) <- getClientByNick uid name
   send uid serverName $ name ++ " was kicked by the GM."
-  removeClient cid
+  mt' <- removeClient cid
+  case mt' of
+    Nothing -> return ()
+    Just t  -> liftIO . atomically $ sendAllUpdates t UpdateAll
   return ResponseSuccess
 
 cmdKick uid u nick cmd _ = return $ ResponsePrivate syntaxKick

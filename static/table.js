@@ -178,13 +178,20 @@ Vartable = function(nick, vars) {
     this.nick = nick;
     this.vars = vars;
     this.visible = false;
+    this.touched = true;
 }
 
 
 function updateVars(newVars) {
+    var keys = Object.keys(vartables);
+    for(var i = 0; i < keys.length; i++) {
+        vartables[keys[i]].touched = false;
+    }
+
     for(var i = 0; i < newVars.length; i++) {
         if(vartables[newVars[i].nick]) {
             vartables[newVars[i].nick].vars = newVars[i].vars;
+            vartables[newVars[i].nick].touched = true;
         } else {
             vartables[newVars[i].nick] = new Vartable(newVars[i].nick, newVars[i].vars);
         }
@@ -197,19 +204,23 @@ function updateVars(newVars) {
         var varsHtml = "";
         for(var i = 0; i < nicks.length; i++) {
             var v = vartables[nicks[i]];
-            varsHtml += "<div class='vars'>";
-            varsHtml += "<h4 class='vars'><a href=\"javascript:toggleVarsTable('"+ v.nick +"')\">" + v.nick + "</a></h4>";
-            varsHtml += "<div class=\"varstable";
-            varsHtml += v.visible ? "" : " hidden";
-            varsHtml += "\" id=\"" + v.nick + "table\">";
-            varsHtml += "<table class=\"vars\">";
-            for(var j = 0; j < v.vars.length; j++) {
-                varsHtml += "<tr class=\"vars\">";
-                varsHtml += "<td class=\"vars\">" + v.vars[j][0] + "</td>";
-                varsHtml += "<td class=\"vars\">" + v.vars[j][1] + "</td>";
-                varsHtml += "</tr>";
+            if(!v.touched) {
+                delete vartables[nicks[i]];
+            } else {
+                varsHtml += "<div class='vars'>";
+                varsHtml += "<h4 class='vars'><a href=\"javascript:toggleVarsTable('"+ v.nick +"')\">" + v.nick + "</a></h4>";
+                varsHtml += "<div class=\"varstable";
+                varsHtml += v.visible ? "" : " hidden";
+                varsHtml += "\" id=\"" + v.nick + "table\">";
+                varsHtml += "<table class=\"vars\">";
+                for(var j = 0; j < v.vars.length; j++) {
+                    varsHtml += "<tr class=\"vars\">";
+                    varsHtml += "<td class=\"vars\">" + v.vars[j][0] + "</td>";
+                    varsHtml += "<td class=\"vars\">" + v.vars[j][1] + "</td>";
+                    varsHtml += "</tr>";
+                }
+                varsHtml += "</table></div></div>";
             }
-            varsHtml += "</table></div></div>";
         }
 
         $("#varstable").html(varsHtml);
