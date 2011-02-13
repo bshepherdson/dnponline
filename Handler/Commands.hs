@@ -161,7 +161,9 @@ cmdNick uid u nick cmd (newnick:_) = do
   updateClient uid $ \c -> Just c { clientNick = newnick }
   send uid serverName $ nick ++ " is now known as " ++ newnick
   t <- getTable uid
-  liftIO . atomically $ sendVarUpdate t UpdateAll -- so the name refreshes for everyone.
+  liftIO . atomically $ do
+    sendVarUpdate t UpdateAll -- so the name refreshes for everyone.
+    sendColorUpdate t UpdateAll -- and the color stays with him
   return ResponseSuccess
 
 
