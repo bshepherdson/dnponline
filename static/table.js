@@ -252,7 +252,7 @@ function expandCollapseAllVars(visible, f) {
     nicks = Object.keys(vartables);
     if(nicks) {
         for(var i = 0; i < nicks.length; i++) {
-            nicks[i].visible = visible;
+            vartables[nicks[i]].visible = visible;
         }
     }
 
