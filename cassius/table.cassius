@@ -1,3 +1,5 @@
+ul
+    text-align: left
 a
     color: #8888FF
     visited: #8888FF

@@ -118,11 +118,11 @@ sendVarUpdate :: Table -> UpdateWhom -> STM ()
 sendVarUpdate t whom = sendVarUpdate' t whom 
   where sendVarUpdate' t UpdateAll = mapM_ (\uid -> sendVarUpdate' t (UpdateUser uid)) $ M.keys (clients t)
         sendVarUpdate' t (UpdateUser uid) = do
+          let allnotes = map (\c -> (clientNick c, map (first (show . fromPersistKey)) . M.assocs . M.map noteName . M.filter (\n -> notePublic n || noteUser n == uid) $ notes c)) . M.elems . clients $ t
           case M.lookup uid (clients t) of
             Nothing -> error "can't happen"
             Just (Client { channel = chan }) -> writeTChan chan $ MessageVars allvars allnotes
         allvars  = map (\c -> (clientNick c, M.assocs (vars c))) . M.elems . clients $ t
-        allnotes = map (\c -> (clientNick c, map (first (show . fromPersistKey)) . M.assocs . M.map noteName . M.filter notePublic $ notes c)) . M.elems . clients $ t
 
 
 modifyTVar :: TVar a -> (a -> a) -> STM ()
