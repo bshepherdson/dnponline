@@ -175,13 +175,14 @@ cmdHost uid u nick cmd [name,pass] = do
   dnp <- getYesod
   vars <- fmap (map (\(_, Var _ var val) -> (var,val))) . runDB $ selectList [VarUserEq uid] [] 0 0
   cmds <- fmap (map (\(_, Command _ name usrcmd) -> (name, usrcmd))) . runDB $ selectList [CommandUserEq uid] [] 0 0
+  notes <- runDB $ selectList [NoteUserEq uid] [NoteNameAsc] 0 0
   liftIO . atomically $ do
     ts <- readTVar $ tables dnp
     case M.lookup name ts of
       Just _  -> return $ ResponsePrivate $ "Table " ++ name ++ " already exists."
       Nothing -> do
         chan <- newTChan
-        let t = Table (M.singleton uid (Client chan nick (userColor u) (M.fromList cmds) False Nothing (M.fromList vars))) pass uid M.empty
+        let t = Table (M.singleton uid (Client chan nick (userColor u) (M.fromList cmds) False Nothing (M.fromList vars) (M.fromList notes))) pass uid M.empty
         writeTVar (tables dnp) $ M.insert name t ts
         modifyTVar (userTables dnp) $ M.insert uid name
         sendVarUpdate t UpdateAll
@@ -198,6 +199,7 @@ cmdJoin uid u nick cmd [name,pass] = do
   dnp <- getYesod
   vars <- fmap (map (\(_, Var _ var val) -> (var,val))) . runDB $ selectList [VarUserEq uid] [] 0 0
   cmds <- fmap (map (\(_, Command _ name usrcmd) -> (name, usrcmd))) . runDB $ selectList [CommandUserEq uid] [] 0 0
+  notes <- runDB $ selectList [NoteUserEq uid] [NoteNameAsc] 0 0
   liftIO . atomically $ do
     userTable <- readTVar $ userTables dnp
     ts <- readTVar $ tables dnp
@@ -211,7 +213,7 @@ cmdJoin uid u nick cmd [name,pass] = do
               False -> return $ ResponsePrivate $ "Bad password for table " ++ name
               True  -> do
                 chan <- newTChan
-                let t'  = t { clients = M.insert uid (Client chan nick (userColor u) (M.fromList cmds) False Nothing (M.fromList vars)) (clients t) }
+                let t'  = t { clients = M.insert uid (Client chan nick (userColor u) (M.fromList cmds) False Nothing (M.fromList vars) (M.fromList notes)) (clients t) }
                     userTable' = M.insert uid name userTable
                     ts' = M.insert name t' ts
                 writeTVar (userTables dnp) userTable'

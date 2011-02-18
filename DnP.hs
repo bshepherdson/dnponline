@@ -76,6 +76,7 @@ data Client = Client
     , muted :: Bool
     , lastToken :: Maybe String
     , vars :: Map String String
+    , notes :: Map NoteId Note -- storing the Persistent values directly
     }
 
 data Token = Token
@@ -90,7 +91,7 @@ data Message = MessageChat String String -- sender, message
              | MessageBoard [Token]
              | MessageColor [(String, String)] -- nick, color
              | MessageWhisper String String -- sender, message
-             | MessageVars [(String,[(String,String)])] -- nick, var name, value
+             | MessageVars [(String,[(String,String)])] [(String, [(String, String)])] -- first string is nick, then var names/values and Note ids/names
              | MessageCommands [(String, String)] -- command, value
              | MessageJunk -- no content. used on refreshing /table
 
@@ -137,6 +138,10 @@ mkYesodData "DnP" [$parseRoutes|
 
 /manual ManualR GET
 /syntax/#String SyntaxR GET
+
+/newnote NewNoteR GET
+/note/#NoteId NoteR GET
+/updatenote UpdateNoteR POST
 |]
 
 -- Please see the documentation for the Yesod typeclass. There are a number

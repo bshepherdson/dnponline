@@ -11,7 +11,7 @@ import Control.Concurrent.STM
 import Control.Concurrent.STM.TVar
 import Control.Concurrent.STM.TChan
 
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, fromJust)
 
 
 import Data.List (sortBy)
@@ -19,6 +19,11 @@ import Data.Ord (comparing)
 
 import Handler.Commands
 import Handler.Util
+
+import Data.ByteString (ByteString)
+import qualified Data.ByteString as B
+
+import qualified Data.Text as T
 
 
 
@@ -50,9 +55,10 @@ getCheckInR = do
                                                                         $ map ($ t) [show.tokenX, show.tokenY, file, tokenName]) 
                                                          ts
                                 )]
-    MessageVars vs -> do
+    MessageVars vs ns -> do
       jsonToRepJson $ jsonMap [("type", jsonScalar "vars"),
-                               ("vars", jsonList $ map (\(c,cvs) -> jsonMap [("nick", jsonScalar c), ("vars", jsonPairs cvs)]) vs)]
+                               ("vars", jsonList $ map (\(c,cvs) -> jsonMap [("nick", jsonScalar c), ("vars", jsonPairs cvs)]) vs),
+                               ("notes", jsonList $ map (\(c,cns) -> jsonMap [("nick", jsonScalar c), ("notes", jsonPairs cns)]) ns)]
     MessageJunk -> jsonToRepJson $ jsonMap [("type", jsonScalar "junk")]
     MessageColor cs -> jsonToRepJson $ jsonMap [("type", jsonScalar "colors"), ("colors", jsonPairs cs)]
     MessageCommands cmds -> jsonToRepJson $ jsonMap [("type", jsonScalar "commands"), ("commands", jsonPairs cmds)]
@@ -169,4 +175,72 @@ getSyntaxR cmd = case M.lookup cmd helpMap of
                     <p>#{snd help} |]
 
 
+
+getNewNoteR :: Handler RepHtml
+getNewNoteR = do
+  (uid,u) <- requireAuth
+  noteWidget uid True Nothing
+
+
+getNoteR :: NoteId -> Handler RepHtml
+getNoteR nid = do
+  (uid,u) <- requireAuth
+  note@(Note owner name text public) <- do
+    mnote <- runDB $ get nid
+    case mnote of
+      Nothing -> invalidArgs $ ["Note " ++ showPersistKey nid ++ " not found."]
+      Just n  -> return n
+  when (owner /= uid && not public) $ invalidArgs $ ["That note does not belong to you and is not public."]
+  noteWidget uid (uid == owner) (Just (nid,note))
+
+
+-- the userid of the requester (not note owner!), whether it should be editable, and Maybe the note itself
+noteWidget :: UserId -> Bool -> Maybe (NoteId, Note) -> Handler RepHtml
+noteWidget uid editable mnote = do
+  let (nid, title, text, public) = case mnote of
+          Just (nid, Note _ t x p) -> (show . fromPersistKey $ nid, t, x, p)
+          Nothing -> ("new", "New Note", "", False)
+  let verb = if editable then "Editing" else "Viewing"
+  let checked = if public then "checked" else ""
+  defaultLayout $ do
+    setTitle . string $ "Dice and Paper Online - " ++ verb ++ " '" ++ title ++ "'"
+    $(widgetFile "note")
+
+
+postUpdateNoteR :: Handler RepHtml
+postUpdateNoteR = do
+  (uid,u) <- requireAuth
+  mnid  <- lookupPostParam "nid"
+  title <- fmap (fromMaybe "Untitled Note") $ lookupPostParam "title"
+  text  <- fmap (fromMaybe "") $ lookupPostParam "notetext"
+  public <- fmap (fromMaybe False . fmap (=="1")) $ lookupPostParam "public"
+  (nid,newnote) <- case mnid of
+    Nothing  -> invalidArgs ["No note ID specified in the request. Report this bug."]
+    Just nid 
+      | nid == "new" -> do
+            let newnote = Note uid title (T.pack text) public
+            nid' <- runDB $ insert newnote
+            return (nid', newnote)
+      | otherwise -> do
+        nid' <- case maybeRead nid of
+                  Nothing -> invalidArgs ["Invalid note ID"]
+                  Just x  -> return $ toPersistKey x
+        moldnode <- runDB $ get nid'
+        case moldnode of
+          Nothing -> invalidArgs ["That note does not exist."]
+          Just (Note owner _ _ _) 
+            | owner /= uid -> invalidArgs ["You are not the owner of that note."]
+            | otherwise -> do
+              newnote <- fmap fromJust . runDB $ do
+                update nid' [NoteName title, NoteText (T.pack text), NotePublic public]
+                get nid'
+              return (nid', newnote)
+  mc <- getClientById uid
+  case mc of
+    Nothing -> return ()
+    Just c  -> do
+      updateClient uid $ \c -> Just c { notes = M.insert nid newnote (notes c) }
+      t <- getTable uid
+      liftIO . atomically $ sendVarUpdate t UpdateAll
+  redirect RedirectTemporary $ NoteR nid
 

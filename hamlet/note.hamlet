@@ -1,0 +1,15 @@
+<h1>#{verb} '#{title}'
+$if editable
+    <form .noteform method=POST action="/updatenote">
+        Title: <input type="text" size=70 maxlength=50 name="title" value="#{title}">
+        <textarea .notetext name="notetext" rows=30>#{text}</textarea>
+        <br/>
+        $if public
+            <input type="checkbox" name="public" value=1 checked> Public
+        $else
+            <input type="checkbox" name="public" value=1> Public
+        <br/>
+        <input type="hidden" name="nid" value="#{nid}">
+        <input type="submit" value="Save">
+$else
+    <textarea .notetext rows=30 readonly>#{text}</textarea>

@@ -5,6 +5,8 @@ import Yesod
 import Database.Persist.TH (share2)
 import Database.Persist.GenericSql (mkMigrate)
 
+import Data.Text (Text)
+
 -- You can define all of your database entities here. You can find more
 -- information on persistent and how to declare entities at:
 -- http://docs.yesodweb.com/book/persistent/
@@ -30,4 +32,10 @@ Var
     name String Eq
     value String Eq
     UniqueVar user name
+Note
+    user UserId Eq
+    name String Eq Asc Update
+    text Text Update
+    public Bool Eq Update
+    UniqueNote user name
 |]

@@ -8,7 +8,7 @@ import Control.Concurrent.STM
 import Control.Concurrent.STM.TVar
 import Control.Concurrent.STM.TChan
 
-import Control.Arrow ((***))
+import Control.Arrow ((***), first)
 import Data.Maybe
 import Control.Applicative
 
@@ -115,12 +115,14 @@ sendBoardUpdate t (UpdateUser uid) = do
 
 
 sendVarUpdate :: Table -> UpdateWhom -> STM ()
-sendVarUpdate t whom = sendVarUpdate' t whom . map (\c -> (clientNick c, M.assocs (vars c))) . M.elems . clients $ t
-  where sendVarUpdate' t UpdateAll allvars = mapM_ (\uid -> sendVarUpdate' t (UpdateUser uid) allvars) $ M.keys (clients t)
-        sendVarUpdate' t (UpdateUser uid) allvars = do
+sendVarUpdate t whom = sendVarUpdate' t whom 
+  where sendVarUpdate' t UpdateAll = mapM_ (\uid -> sendVarUpdate' t (UpdateUser uid)) $ M.keys (clients t)
+        sendVarUpdate' t (UpdateUser uid) = do
           case M.lookup uid (clients t) of
             Nothing -> error "can't happen"
-            Just (Client { channel = chan }) -> writeTChan chan $ MessageVars allvars
+            Just (Client { channel = chan }) -> writeTChan chan $ MessageVars allvars allnotes
+        allvars  = map (\c -> (clientNick c, M.assocs (vars c))) . M.elems . clients $ t
+        allnotes = map (\c -> (clientNick c, map (first (show . fromPersistKey)) . M.assocs . M.map noteName . M.filter notePublic $ notes c)) . M.elems . clients $ t
 
 
 modifyTVar :: TVar a -> (a -> a) -> STM ()

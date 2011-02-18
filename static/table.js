@@ -81,7 +81,7 @@ function checkIn () {
             var color = getColor(data.sender);
             display("<span class=\"whisper\">Whisper from <span style=\"color: " + color + "\">" + data.sender + ":</span> " + data.content + "</span>");
         } else if(data.type == "vars") {
-            updateVars(data.vars);
+            updateVars(data.vars, data.notes);
         } else if(data.type == "junk") {
             // do nothing
         } else if(data.type == "colors") {
@@ -174,15 +174,16 @@ function updateMap(newTokens) {
 
 var vartables = {};
 
-Vartable = function(nick, vars) {
+Vartable = function(nick, vars, notes) {
     this.nick = nick;
     this.vars = vars;
+    this.notes = notes;
     this.visible = true;
     this.touched = true;
 }
 
 
-function updateVars(newVars) {
+function updateVars(newVars, newNotes) {
     var keys = Object.keys(vartables);
     for(var i = 0; i < keys.length; i++) {
         vartables[keys[i]].touched = false;
@@ -193,7 +194,16 @@ function updateVars(newVars) {
             vartables[newVars[i].nick].vars = newVars[i].vars;
             vartables[newVars[i].nick].touched = true;
         } else {
-            vartables[newVars[i].nick] = new Vartable(newVars[i].nick, newVars[i].vars);
+            vartables[newVars[i].nick] = new Vartable(newVars[i].nick, newVars[i].vars, []); // notes will get filled in
+        }
+    }
+
+    for(var i = 0; i < newNotes.length; i++) {
+        if(vartables[newNotes[i].nick]) {
+            vartables[newNotes[i].nick].notes = newNotes[i].notes;
+            vartables[newNotes[i].nick].touched = true;
+        } else {
+            vartables[newNotes[i].nick] = new Vartable(newNotes[i].nick, [], newNotes[i].notes);
         }
     }
 
@@ -212,6 +222,11 @@ function updateVars(newVars) {
                 varsHtml += "<div class=\"varstable";
                 varsHtml += v.visible ? "" : " hidden";
                 varsHtml += "\" id=\"" + v.nick + "table\">";
+                varsHtml += "<ul>";
+                for(var j = 0; j < v.notes.length; j++) {
+                    varsHtml += "<li><a target=\"_blank\" href=\"/note/" + v.notes[j][0] + "\">" + v.notes[j][1] + "</a></li>";
+                }
+                varsHtml += "</ul>";
                 varsHtml += "<table class=\"vars\">";
                 for(var j = 0; j < v.vars.length; j++) {
                     varsHtml += "<tr class=\"vars\">";
