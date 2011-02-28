@@ -15,7 +15,7 @@
                     <a href="javascript:collapseAllVars()">Hide
                     &nbsp;all
                 <div id="varstable">
-                <p><a target="_blank" href="@{NewNoteR}">Create New Note
+                <p><a target="_blank" href="@{NewNoteR}">Create New Note</a></p>
             <div id="chatcontainer">
                 <div .bordernormal id="chattextarea">
                 <img id="chatscrolllock" src="/static/images/blue.png">
